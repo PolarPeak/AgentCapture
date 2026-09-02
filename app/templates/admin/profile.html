@@ -1,0 +1,31 @@
+{% extends 'admin/base.html' %}
+{% from 'admin/_macros.html' import page_header, section_header %}
+{% block content %}
+{{ page_header('PF', '个人信息', '维护当前账号资料与密码。', ['账号设置']) }}
+
+<div class="grid-2">
+  <section class="panel">
+    {{ section_header('更新资料', '姓名、邮箱与语言偏好') }}
+    <form method="post" action="/admin/profile" class="stack">
+      <label class="field-label"><span>姓名</span><input name="name" value="{{ current_user.name }}" placeholder="姓名"></label>
+      <label class="field-label"><span>邮箱</span><input name="email" value="{{ current_user.email }}" placeholder="邮箱"></label>
+      <label class="field-label">
+        <span>语言偏好</span>
+        <select name="preferred_language">
+          <option value="zh" {% if current_user.preferred_language == 'zh' %}selected{% endif %}>中文（zh）</option>
+          <option value="en" {% if current_user.preferred_language == 'en' %}selected{% endif %}>English (en)</option>
+        </select>
+      </label>
+      <button type="submit">保存资料</button>
+    </form>
+  </section>
+  <section class="panel">
+    {{ section_header('修改密码', '验证当前密码后设置新密码') }}
+    <form method="post" action="/admin/profile/change-password" class="stack">
+      <label class="field-label"><span>当前密码</span><input name="current_password" type="password" placeholder="当前密码" required></label>
+      <label class="field-label"><span>新密码</span><input name="new_password" type="password" placeholder="新密码" required></label>
+      <button type="submit">修改密码</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

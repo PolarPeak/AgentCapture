@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ title }}</title>
+    <link rel="icon" type="image/svg+xml" href="/static/agentcapture-logo.svg?v=default" />
+    <link rel="shortcut icon" type="image/svg+xml" href="/static/agentcapture-logo.svg?v=default" />
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700;800&display=swap");
+
+      :root {
+        color-scheme: dark;
+        --bg: #070b16;
+        --card: #0d1424;
+        --text: #e5edf8;
+        --text-strong: #f8fbff;
+        --muted: #94a3b8;
+        --line: rgba(148, 163, 184, 0.18);
+        --blue: #3b82f6;
+        --blue-strong: #2563eb;
+        --cyan: #0ea5e9;
+        --amber: #f59e0b;
+        --green: #34d399;
+        --ring: #60a5fa;
+        --glow-blue: 0 0 28px rgba(255, 255, 255, 0.22);
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        font-family: "Fira Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at 16% 6%, rgba(255, 255, 255, 0.07), transparent 30rem),
+          radial-gradient(circle at 82% 0%, rgba(255, 255, 255, 0.05), transparent 30rem),
+          radial-gradient(circle at 88% 84%, rgba(255, 255, 255, 0.03), transparent 28rem),
+          linear-gradient(135deg, #060a13 0%, #08111f 48%, #050816 100%);
+        text-rendering: optimizeLegibility;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background-image:
+          linear-gradient(rgba(148, 163, 184, 0.045) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(148, 163, 184, 0.045) 1px, transparent 1px);
+        background-size: 48px 48px;
+        mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.9), transparent 78%);
+      }
+      a { color: inherit; text-decoration: none; cursor: pointer; }
+      ::selection { background: rgba(255, 255, 255, 0.3); color: var(--text-strong); }
+      :focus-visible { outline: 3px solid rgba(255, 255, 255, 0.58); outline-offset: 3px; }
+      .hidden { display: none; }
+
+      .page { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 0 28px 72px; }
+
+      /* ---------- top nav ---------- */
+      .topnav {
+        position: sticky;
+        top: 14px;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        margin-top: 14px;
+        padding: 12px 18px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(8, 13, 25, 0.78);
+        backdrop-filter: blur(20px);
+        box-shadow: 0 16px 42px rgba(2, 6, 23, 0.34);
+      }
+      .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+      .brand-mark {
+        width: 38px;
+        height: 38px;
+        padding: 7px;
+        border-radius: 13px;
+        color: #d7dde8;
+        border: 1px solid rgba(255, 255, 255, 0.26);
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(245, 158, 11, 0.1));
+        filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.25));
+      }
+      .brand-name { font-size: 17px; font-weight: 800; color: var(--text-strong); letter-spacing: -0.03em; }
+      .brand-tag { margin-top: 2px; font-size: 11px; color: var(--muted); }
+      .topnav-links { display: flex; align-items: center; gap: 6px; }
+      .nav-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 9px 14px;
+        border-radius: 12px;
+        border: 1px solid transparent;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 700;
+        transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease;
+      }
+      .nav-link:hover { color: var(--text-strong); background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.18); }
+      .nav-cta {
+        color: #0a0a0a;
+        background: linear-gradient(to bottom, #ffffff, rgba(255,255,255,0.85));
+      }
+      .nav-cta:hover { color: #0a0a0a; background: #ffffff; transform: translateY(-1px); }
+      .nav-icon { width: 15px; height: 15px; }
+
+      /* ---------- hero ---------- */
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(380px, 0.95fr);
+        gap: 40px;
+        align-items: center;
+        padding: 84px 0 56px;
+      }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        background: rgba(255, 255, 255, 0.1);
+        color: #d7dde8;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .eyebrow::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: var(--green);
+        box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.14), 0 0 12px rgba(52, 211, 153, 0.5);
+      }
+      .hero-title {
+        margin: 20px 0 0;
+        color: var(--text-strong);
+        font-size: clamp(34px, 4.4vw, 56px);
+        font-weight: 800;
+        line-height: 1.08;
+        letter-spacing: -0.05em;
+      }
+      .hero-title em {
+        font-style: normal;
+        background: linear-gradient(to bottom, #ffffff, rgba(255, 255, 255, 0.55));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .hero-desc { margin: 20px 0 0; max-width: 56ch; color: var(--muted); font-size: 16px; line-height: 1.8; }
+      .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        padding: 13px 22px;
+        border-radius: 14px;
+        border: 1px solid transparent;
+        font-size: 14px;
+        font-weight: 800;
+        transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background-color 180ms ease;
+      }
+      .btn:hover { transform: translateY(-2px); }
+      .btn-primary { color: #0a0a0a; background: linear-gradient(to bottom, #ffffff, rgba(255,255,255,0.92), rgba(255,255,255,0.72)); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42); font-weight: 700; }
+      .btn-primary:hover { box-shadow: 0 0 38px rgba(255, 255, 255, 0.34); }
+      .btn-ghost { color: #e5e7eb; border-color: rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.08); }
+      .btn-ghost:hover { border-color: rgba(255, 255, 255, 0.5); background: rgba(255, 255, 255, 0.14); }
+      .btn svg { width: 16px; height: 16px; }
+      .hero-meta { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 34px; color: var(--muted); font-size: 12.5px; }
+      .hero-meta span { display: inline-flex; align-items: center; gap: 7px; }
+      .hero-meta svg { width: 14px; height: 14px; color: #c9d3e0; }
+
+      /* ---------- terminal card ---------- */
+      .terminal {
+        position: relative;
+        border-radius: 22px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background:
+          radial-gradient(circle at 88% 0%, rgba(14, 165, 233, 0.14), transparent 42%),
+          linear-gradient(180deg, rgba(15, 23, 42, 0.9), rgba(8, 13, 25, 0.94));
+        box-shadow: 0 28px 80px rgba(2, 6, 23, 0.5), var(--glow-blue);
+        overflow: hidden;
+      }
+      .terminal::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 30%);
+      }
+      .terminal-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 13px 16px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+      }
+      .terminal-dot { width: 11px; height: 11px; border-radius: 999px; }
+      .terminal-dot.r { background: #fb7185; }
+      .terminal-dot.y { background: #f59e0b; }
+      .terminal-dot.g { background: #34d399; }
+      .terminal-title {
+        margin-left: 8px;
+        color: var(--muted);
+        font-family: "Fira Code", ui-monospace, monospace;
+        font-size: 12px;
+      }
+      .terminal-body {
+        padding: 18px 18px 20px;
+        font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12.5px;
+        line-height: 1.9;
+      }
+      .t-line { display: flex; gap: 10px; white-space: nowrap; overflow: hidden; }
+      .t-time { color: rgba(148, 163, 184, 0.55); flex: 0 0 auto; }
+      .t-tag { flex: 0 0 auto; font-weight: 700; }
+      .t-tag.block { color: #fb7185; }
+      .t-tag.isolate { color: #f59e0b; }
+      .t-tag.observe { color: #cbd5e1; }
+      .t-tag.hit { color: #34d399; }
+      .t-msg { color: #c6d4e8; overflow: hidden; text-overflow: ellipsis; }
+      .t-cursor { display: inline-block; width: 8px; height: 15px; margin-left: 2px; vertical-align: -2px; background: #e5e7eb; animation: blink 1.1s steps(1) infinite; }
+      @keyframes blink { 50% { opacity: 0; } }
+
+      /* ---------- sections ---------- */
+      .section { margin-top: 72px; }
+      .section-head { max-width: 640px; }
+      .section-kicker {
+        color: #c9d3e0;
+        font-family: "Fira Code", ui-monospace, monospace;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+      .section-title { margin: 12px 0 0; color: var(--text-strong); font-size: clamp(24px, 2.6vw, 34px); font-weight: 800; letter-spacing: -0.035em; }
+      .section-desc { margin: 12px 0 0; color: var(--muted); font-size: 14.5px; line-height: 1.75; }
+
+      .cap-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 30px; }
+      .cap-card {
+        position: relative;
+        padding: 22px;
+        border-radius: 20px;
+        border: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(15, 23, 42, 0.76), rgba(8, 13, 25, 0.84));
+        box-shadow: 0 22px 60px rgba(2, 6, 23, 0.32);
+        overflow: hidden;
+        transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+      }
+      .cap-card:hover { transform: translateY(-3px); border-color: rgba(255, 255, 255, 0.36); box-shadow: 0 28px 72px rgba(2, 6, 23, 0.44); }
+      .cap-card::after {
+        content: "";
+        position: absolute;
+        inset: auto -24% -52% 30%;
+        height: 9rem;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.16), transparent 70%);
+        pointer-events: none;
+      }
+      .cap-icon {
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        border-radius: 15px;
+        color: #e5e7eb;
+        background: rgba(255, 255, 255, 0.14);
+        border: 1px solid rgba(255, 255, 255, 0.24);
+      }
+      .cap-icon svg { width: 21px; height: 21px; }
+      .cap-card.tone-amber .cap-icon { color: #fde68a; background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.26); }
+      .cap-card.tone-amber::after { background: radial-gradient(circle, rgba(245, 158, 11, 0.16), transparent 70%); }
+      .cap-card.tone-green .cap-icon { color: #bbf7d0; background: rgba(52, 211, 153, 0.1); border-color: rgba(52, 211, 153, 0.24); }
+      .cap-card.tone-green::after { background: radial-gradient(circle, rgba(52, 211, 153, 0.14), transparent 70%); }
+      .cap-name { margin: 16px 0 0; color: var(--text-strong); font-size: 16px; font-weight: 800; }
+      .cap-desc { margin: 9px 0 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+
+      .demo-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 30px; }
+      .demo-link {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 18px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: rgba(13, 20, 36, 0.66);
+        transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
+      }
+      .demo-link:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, 0.36); background: rgba(255, 255, 255, 0.08); }
+      .demo-path {
+        flex: 0 0 auto;
+        max-width: 46%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding: 4px 10px;
+        border-radius: 9px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(255, 255, 255, 0.08);
+        color: #d7dde8;
+        font-family: "Fira Code", ui-monospace, monospace;
+        font-size: 12px;
+      }
+      .demo-name { flex: 1; min-width: 0; color: var(--text); font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .demo-arrow { flex: 0 0 auto; width: 16px; height: 16px; color: var(--muted); transition: transform 180ms ease, color 180ms ease; }
+      .demo-link:hover .demo-arrow { transform: translateX(3px); color: #c9d3e0; }
+
+      .footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 76px;
+        padding-top: 22px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .footer code {
+        padding: 3px 9px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(255, 255, 255, 0.08);
+        color: #d7dde8;
+        font-family: "Fira Code", ui-monospace, monospace;
+        font-size: 11.5px;
+      }
+
+      @media (max-width: 960px) {
+        .hero { grid-template-columns: 1fr; padding: 56px 0 40px; }
+        .cap-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+      @media (max-width: 640px) {
+        .page { padding: 0 18px 56px; }
+        .topnav { flex-direction: column; align-items: stretch; }
+        .topnav-links { justify-content: flex-end; }
+        .cap-grid, .demo-list { grid-template-columns: 1fr; }
+        .hero-actions .btn { flex: 1; justify-content: center; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <nav class="topnav" aria-label="主导航">
+        <div class="brand">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" class="brand-mark" role="presentation" aria-hidden="true">
+            <path fill="currentColor" d="M249,344 L244,343 L233,353 L231,353 L230,350 L224,353 L223,356 L227,355 L228,358 L205,379 L202,379 L201,377 L197,380 L184,378 L181,379 L195,381 L202,380 L203,386 L208,390 L212,390 L248,356 L252,351 Z" />
+            <path fill="currentColor" d="M317,174 L315,180 L312,181 L311,189 L312,206 L309,207 L310,208 L309,219 L304,225 L304,247 L302,250 L304,251 L306,255 L308,250 L311,218 L310,211 L314,207 L314,197 L317,192 L316,191 L318,175 Z" />
+            <path fill="currentColor" d="M290,118 L289,123 L297,135 L302,157 L292,228 L294,248 L306,179 L307,152 L300,129 L296,121 Z" />
+            <path fill="currentColor" d="M280,76 L279,77 L279,103 L282,103 L284,101 L287,101 L290,103 L292,102 L298,103 L301,107 L303,107 L306,110 L308,116 L312,120 L313,128 L315,130 L317,130 L316,122 L311,118 L311,113 L308,112 L305,109 L305,104 L299,99 L299,97 L296,95 L296,93 L294,93 L292,91 L292,88 L290,88 L282,80 Z" />
+            <path fill="currentColor" d="M279,49 L256,132 L253,93 L248,133 L200,90 L176,100 L207,276 L125,508 L164,560 L217,546 L325,438 L360,438 L445,518 L426,487 L445,463 L313,302 L322,423 L196,542 L139,525 L195,308 L254,251 L275,266 L274,65 L327,136 L307,269 L328,247 L508,300 L414,215 L334,185 L334,116 Z" />
+          </svg>
+          <div>
+            <div class="brand-name">AgentCapture</div>
+            <div class="brand-tag">Honeypot SaaS Platform</div>
+          </div>
+        </div>
+        <div class="topnav-links">
+          <a class="nav-link" href="/admin/big-screen">
+            <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M8 20h8"></path><path d="M12 17v3"></path></svg>
+            态势大屏
+          </a>
+          <a class="nav-link nav-cta" href="/admin">
+            <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v6c0 5 3.5 8 7 9 3.5-1 7-4 7-9V6z"></path></svg>
+            进入控制台
+          </a>
+        </div>
+      </nav>
+
+      <header class="hero">
+        <div>
+          <span class="eyebrow">Deception Layer Online</span>
+          <h1 class="hero-title">面向 AI Agent 与自动化渗透的<em>嵌入式蜜罐平台</em></h1>
+          <p class="hero-desc">部署在反向代理与 Web 应用之前的欺骗层：通过隐藏路由、假凭证、文件蜜饵、JSONP 画像与 提示词注入触发记录，识别自动化扫描、AI Agent 探测、凭证泄露与横向侦察行为。</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="/admin">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8"></rect><rect x="13" y="3" width="8" height="5"></rect><rect x="13" y="10" width="8" height="11"></rect><rect x="3" y="13" width="8" height="8"></rect></svg>
+              运营控制台
+            </a>
+            <a class="btn btn-ghost" href="/console/events">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-5 4 10 2-5h6"></path></svg>
+              原始事件流
+            </a>
+          </div>
+          <div class="hero-meta">
+            <span>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3"></path><path d="M12 19v3"></path><path d="M2 12h3"></path><path d="M19 12h3"></path></svg>
+              五级风险决策
+            </span>
+            <span>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"></path><path d="M5 5h11l-1.5 3L16 11H5"></path></svg>
+              三类蜜饵链路
+            </span>
+            <span>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="8" width="14" height="11" rx="2"></rect><path d="M12 4v4"></path><path d="M8 8 6.5 6.5"></path><path d="M16 8l1.5-1.5"></path><circle cx="9" cy="13" r="1"></circle><circle cx="15" cy="13" r="1"></circle><path d="M9 16h6"></path></svg>
+              Agent 行为识别
+            </span>
+          </div>
+        </div>
+
+        <div class="terminal" aria-hidden="true">
+          <div class="terminal-bar">
+            <span class="terminal-dot r"></span>
+            <span class="terminal-dot y"></span>
+            <span class="terminal-dot g"></span>
+            <span class="terminal-title">agent-capture — live feed</span>
+          </div>
+          <div class="terminal-body">
+            <div class="t-line"><span class="t-time">15:56:01</span><span class="t-tag observe">[OBSERVE]</span><span class="t-msg">GET /internal/openapi.json · ua=GPTBot/1.2</span></div>
+            <div class="t-line"><span class="t-time">15:56:04</span><span class="t-tag hit">[HIT]</span><span class="t-msg">canary 回显命中 · canary=ach_7f3e</span></div>
+            <div class="t-line"><span class="t-time">15:56:09</span><span class="t-tag isolate">[ISOLATE]</span><span class="t-msg">POST /_trap/admin/staging-login · score=78</span></div>
+            <div class="t-line"><span class="t-time">15:56:12</span><span class="t-tag hit">[HIT]</span><span class="t-msg">文件蜜饵下载 · backup-2025-05.zip</span></div>
+            <div class="t-line"><span class="t-time">15:56:18</span><span class="t-tag block">[BLOCK]</span><span class="t-msg">LangChain agent 指纹 · score=96</span></div>
+            <div class="t-line"><span class="t-time">15:56:20</span><span class="t-tag observe">[OBSERVE]</span><span class="t-msg">JSONP 画像回传 · webgl/fonts/plugins</span></div>
+            <div class="t-line"><span class="t-time">15:56:24</span><span class="t-tag">$</span><span class="t-msg">waiting for probes<span class="t-cursor"></span></span></div>
+          </div>
+        </div>
+      </header>
+
+      <section class="section" id="capabilities">
+        <div class="section-head">
+          <div class="section-kicker">Capabilities</div>
+          <h2 class="section-title">核心能力</h2>
+          <p class="section-desc">从诱捕、识别到反制证据回收的完整链路，全部在一个平台内闭环。</p>
+        </div>
+        <div class="cap-grid">
+          <div class="cap-card">
+            <div class="cap-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="8" width="14" height="11" rx="2"></rect><path d="M12 4v4"></path><path d="M8 8 6.5 6.5"></path><path d="M16 8l1.5-1.5"></path><circle cx="9" cy="13" r="1"></circle><circle cx="15" cy="13" r="1"></circle><path d="M9 16h6"></path></svg></div>
+            <h3 class="cap-name">AI Agent 反制</h3>
+            <p class="cap-desc">检测并阻断 AI 驱动的渗透工具，注入对抗提示词，回显攻击者上下文信息。</p>
+          </div>
+          <div class="cap-card">
+            <div class="cap-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12 19 5"></path><circle cx="12" cy="12" r="3"></circle><path d="M5 19a10 10 0 1 1 14 0"></path><path d="M8.5 15.5a5 5 0 1 1 7 0"></path></svg></div>
+            <h3 class="cap-name">浏览器指纹采集</h3>
+            <p class="cap-desc">WebRTC 内网 IP 泄露、Canvas 指纹与插件 / 字体枚举，构建设备级画像。</p>
+          </div>
+          <div class="cap-card tone-amber">
+            <div class="cap-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 13h8"></path><path d="M8 17h8"></path></svg></div>
+            <h3 class="cap-name">Payload 投放</h3>
+            <p class="cap-desc">生成含嵌入式回调的蜜饵文件，追踪下载链路并反制攻击者终端。</p>
+          </div>
+          <div class="cap-card">
+            <div class="cap-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"></path><path d="M5 5h11l-1.5 3L16 11H5"></path></svg></div>
+            <h3 class="cap-name">蜜饵嵌入</h3>
+            <p class="cap-desc">诱捕路由、假凭据与蜜标文件分发，三类蜜饵可绑定串联成完整攻击链路。</p>
+          </div>
+          <div class="cap-card tone-green">
+            <div class="cap-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-5 4 10 2-5h6"></path></svg></div>
+            <h3 class="cap-name">风险引擎</h3>
+            <p class="cap-desc">allow / observe / challenge / isolate / block 五级决策，按信号实时打分。</p>
+          </div>
+          <div class="cap-card">
+            <div class="cap-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M8 20h8"></path><path d="M12 17v3"></path></svg></div>
+            <h3 class="cap-name">态势可视化</h3>
+            <p class="cap-desc">攻击趋势、来源画像、扫描器识别与节点汇聚，一屏掌握全局态势。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="demo">
+        <div class="section-head">
+          <div class="section-kicker">Entry Points</div>
+          <h2 class="section-title">演示入口</h2>
+          <p class="section-desc">以下入口用于授权环境下的功能演示与诱捕链路验证。</p>
+        </div>
+        <div class="demo-list">
+          <a class="demo-link" href="/admin">
+            <span class="demo-path">/admin</span>
+            <span class="demo-name">管理后台</span>
+            <svg class="demo-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
+          </a>
+          <a class="demo-link" href="/_agent/bait">
+            <span class="demo-path">/_agent/bait</span>
+            <span class="demo-name">AI Agent 诱捕页面</span>
+            <svg class="demo-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
+          </a>
+          <a class="demo-link" href="/payload/html_beacon">
+            <span class="demo-path">/payload/html_beacon</span>
+            <span class="demo-name">HTML 信标 Payload</span>
+            <svg class="demo-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
+          </a>
+          <a class="demo-link" href="/internal/openapi.json">
+            <span class="demo-path">/internal/openapi.json</span>
+            <span class="demo-name">假 API 文档</span>
+            <svg class="demo-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
+          </a>
+          <a class="demo-link" href="/docs/runbook-internal.md">
+            <span class="demo-path">/docs/runbook-internal.md</span>
+            <span class="demo-name">假运维手册</span>
+            <svg class="demo-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
+          </a>
+          <a class="demo-link" href="/_trap/admin/staging-login">
+            <span class="demo-path">/_trap/admin/staging-login</span>
+            <span class="demo-name">登录型蜜罐</span>
+            <svg class="demo-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
+          </a>
+          <a class="demo-link" href="/console/events">
+            <span class="demo-path">/console/events</span>
+            <span class="demo-name">原始事件流</span>
+            <svg class="demo-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
+          </a>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <span>AgentCapture · 嵌入式蜜罐与 Agent 检测平台</span>
+        <span>当前会话 <code>{{ session_id }}</code></span>
+      </footer>
+    </div>
+
+    <a class="hidden" href="/_trap/backup/site-backup-2025-05.zip">backup</a>
+  </body>
+</html>

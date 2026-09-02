@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ title }}</title>
+    <link rel="icon" type="image/svg+xml" href="/static/agentcapture-logo.svg?v=default" />
+    <link rel="shortcut icon" type="image/svg+xml" href="/static/agentcapture-logo.svg?v=default" />
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600;700&family=Fira+Sans:wght@400;500;600;700;800&display=swap");
+      :root {
+        color-scheme: dark;
+        --bg: #070b16;
+        --panel: rgba(15, 23, 42, 0.78);
+        --panel-strong: rgba(8, 13, 25, 0.92);
+        --text: #f8fbff;
+        --muted: #94a3b8;
+        --line: rgba(148, 163, 184, 0.18);
+        --blue: #3b82f6;
+        --blue-2: #0ea5e9;
+        --amber: #f59e0b;
+        --danger: #fb7185;
+      }
+      * { box-sizing: border-box; }
+      body {
+        min-height: 100vh;
+        margin: 0;
+        color: var(--text);
+        font-family: "Fira Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at 16% 12%, rgba(59, 130, 246, 0.28), transparent 28rem),
+          radial-gradient(circle at 84% 82%, rgba(245, 158, 11, 0.10), transparent 24rem),
+          linear-gradient(135deg, #050816, #08111f 52%, #050816);
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background-image:
+          linear-gradient(rgba(148, 163, 184, 0.045) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(148, 163, 184, 0.045) 1px, transparent 1px);
+        background-size: 48px 48px;
+        mask-image: linear-gradient(to bottom, black, transparent 78%);
+      }
+      a { color: inherit; }
+      .login-page {
+        position: relative;
+        z-index: 1;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 32px;
+      }
+      .login-shell {
+        width: min(1120px, 100%);
+        display: grid;
+        grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 30px;
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.72), rgba(8, 13, 25, 0.88));
+        box-shadow: 0 32px 90px rgba(2, 6, 23, 0.56);
+        overflow: hidden;
+        backdrop-filter: blur(22px);
+      }
+      .story-panel {
+        position: relative;
+        min-height: 620px;
+        padding: 42px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        background:
+          radial-gradient(circle at 20% 10%, rgba(59, 130, 246, 0.22), transparent 22rem),
+          linear-gradient(180deg, rgba(15, 23, 42, 0.18), rgba(2, 6, 23, 0.28));
+      }
+      .story-panel::after {
+        content: "";
+        position: absolute;
+        right: -12rem;
+        bottom: -12rem;
+        width: 30rem;
+        height: 30rem;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(14, 165, 233, 0.2), transparent 68%);
+      }
+      .brand-row { display: flex; align-items: center; gap: 14px; position: relative; z-index: 1; }
+      .brand-mark {
+        width: 52px;
+        height: 52px;
+        padding: 10px;
+        border-radius: 18px;
+        color: #dbeafe;
+        border: 1px solid rgba(96, 165, 250, 0.28);
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.28), rgba(14, 165, 233, 0.12));
+        box-shadow: 0 0 28px rgba(59, 130, 246, 0.24);
+      }
+      .brand-title { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.03em; }
+      .brand-subtitle { margin-top: 5px; color: var(--muted); font-size: 13px; }
+      .story-copy { position: relative; z-index: 1; max-width: 620px; }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(96, 165, 250, 0.22);
+        background: rgba(59, 130, 246, 0.10);
+        color: #bfdbfe;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .story-title { margin: 18px 0 0; font-size: clamp(34px, 4vw, 58px); line-height: 1.02; letter-spacing: -0.06em; }
+      .story-desc { margin: 18px 0 0; color: var(--muted); font-size: 16px; line-height: 1.75; }
+      .capability-grid { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+      .capability {
+        min-height: 92px;
+        padding: 15px;
+        border-radius: 18px;
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        background: rgba(2, 6, 23, 0.22);
+      }
+      .capability strong { display: block; font-size: 14px; }
+      .capability span { display: block; margin-top: 7px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+      .login-panel { padding: 42px; display: flex; align-items: center; background: rgba(2, 6, 23, 0.18); }
+      .login-card { width: 100%; }
+      .login-card h1 { margin: 0; font-size: 28px; letter-spacing: -0.035em; }
+      .login-card p { margin: 10px 0 24px; color: var(--muted); line-height: 1.65; }
+      .error {
+        margin-bottom: 18px;
+        border: 1px solid rgba(251, 113, 133, 0.28);
+        background: rgba(251, 113, 133, 0.10);
+        color: #fecdd3;
+        border-radius: 16px;
+        padding: 12px 14px;
+        font-weight: 700;
+      }
+      form { display: grid; gap: 14px; }
+      label { display: grid; gap: 8px; color: #dbeafe; font-size: 13px; font-weight: 800; }
+      input, button {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 14px 15px;
+        background: rgba(8, 13, 25, 0.78);
+        color: var(--text);
+        font: inherit;
+        outline: none;
+      }
+      input::placeholder { color: rgba(148, 163, 184, 0.7); }
+      input:focus { border-color: rgba(255, 255, 255, 0.55); box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1); }
+      button {
+        margin-top: 8px;
+        cursor: pointer;
+        border: 0;
+        background: linear-gradient(to bottom, #ffffff, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.75));
+        color: #0a0a0a;
+        font-weight: 700;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.42);
+        transition: transform 180ms ease, box-shadow 180ms ease;
+      }
+      button:hover { transform: translateY(-1px); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.52); }
+      .form-foot { margin-top: 18px; display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 12px; }
+      code { font-family: "Fira Code", monospace; color: #bfdbfe; }
+      @media (max-width: 900px) {
+        .login-page { padding: 16px; }
+        .login-shell { grid-template-columns: 1fr; }
+        .story-panel { min-height: auto; padding: 28px; gap: 36px; }
+        .login-panel { padding: 28px; }
+      }
+      @media (max-width: 560px) { .capability-grid { grid-template-columns: 1fr; } .form-foot { flex-direction: column; } }
+      @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; } }
+    </style>
+  </head>
+  <body>
+    <main class="login-page">
+      <section class="login-shell" aria-label="AgentCapture 登录">
+        <div class="story-panel">
+          <div class="brand-row">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" class="brand-mark" aria-hidden="true">
+              <path fill="currentColor" d="M249,344 L244,343 L233,353 L231,353 L230,350 L224,353 L223,356 L227,355 L228,358 L205,379 L202,379 L201,377 L197,380 L184,378 L181,379 L195,381 L202,380 L203,386 L208,390 L212,390 L248,356 L252,351 Z" />
+              <path fill="currentColor" d="M317,174 L315,180 L312,181 L311,189 L312,206 L309,207 L310,208 L309,219 L304,225 L304,247 L302,250 L304,251 L306,255 L308,250 L311,218 L310,211 L314,207 L314,197 L317,192 L316,191 L318,175 Z" />
+              <path fill="currentColor" d="M290,118 L289,123 L297,135 L302,157 L292,228 L294,248 L306,179 L307,152 L300,129 L296,121 Z" />
+              <path fill="currentColor" d="M280,76 L279,77 L279,103 L282,103 L284,101 L287,101 L290,103 L292,102 L298,103 L301,107 L303,107 L306,110 L308,116 L312,120 L313,128 L315,130 L317,130 L316,122 L311,118 L311,113 L308,112 L305,109 L305,104 L299,99 L299,97 L296,95 L296,93 L294,93 L292,91 L292,88 L290,88 L282,80 Z" />
+              <path fill="currentColor" d="M279,49 L256,132 L253,93 L248,133 L200,90 L176,100 L207,276 L125,508 L164,560 L217,546 L325,438 L360,438 L445,518 L426,487 L445,463 L313,302 L322,423 L196,542 L139,525 L195,308 L254,251 L275,266 L274,65 L327,136 L307,269 L328,247 L508,300 L414,215 L334,185 L334,116 Z" />
+            </svg>
+            <div>
+              <h2 class="brand-title">AgentCapture</h2>
+              <div class="brand-subtitle">Honeypot SaaS Console</div>
+            </div>
+          </div>
+          <div class="story-copy">
+            <div class="eyebrow">Secure Operations</div>
+            <h1 class="story-title">蜜罐运营、反制溯源与平台治理统一入口</h1>
+            <p class="story-desc">为安全值守团队提供 SaaS 化后台体验：清晰的功能分区、实时指标、节点运营、文件蜜饵下载和 提示词注入触发记录。</p>
+            <div class="capability-grid">
+              <div class="capability"><strong>态势监测</strong><span>攻击趋势、来源画像、扫描器识别和节点汇聚。</span></div>
+              <div class="capability"><strong>反制溯源</strong><span>Jsonp 画像、提示词注入触发记录、文件蜜饵和凭证蜜饵证据链。</span></div>
+              <div class="capability"><strong>部署运营</strong><span>节点、端口服务、Web 应用、蜜饵和提示词注入集中维护。</span></div>
+              <div class="capability"><strong>平台设置</strong><span>工作流、执行历史、登陆日志、用户管理和个人信息。</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="login-panel">
+          <div class="login-card">
+            <h1>登录控制台</h1>
+            <p>使用本地管理员或操作员账号进入 Agent-Capture 后台。</p>
+            {% if error %}<div class="error">{{ error }}</div>{% endif %}
+            <form method="post" action="/admin/login">
+              <label>用户名<input name="username" autocomplete="username" placeholder="admin" required /></label>
+              <label>密码<input name="password" type="password" autocomplete="current-password" placeholder="请输入密码" required /></label>
+              <button type="submit">进入后台</button>
+            </form>
+            <div class="form-foot"><span>默认租户：<code>{{ site_id }}</code></span><span>受控沙箱后台</span></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

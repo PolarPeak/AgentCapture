@@ -1,0 +1,667 @@
+{% extends 'admin/base.html' %}
+{% from 'admin/_macros.html' import page_header, section_header, empty_state, modal_dialog %}
+{% block content %}
+{{ page_header('TP', title or 'Web应用蜜罐管理', '只管理 Web 应用蜜罐的模板页面上传与节点部署，把仿真登录页、管理后台、业务入口等页面沉淀为可复用部署单元。', ['Web 应用', '节点部署'],
+      actions='<button type="button" class="chip primary" data-modal-open="clone-modal">＋ 克隆站点</button><button type="button" class="chip primary" data-modal-open="upload-modal">＋ 上传模板</button>') }}
+
+<style>
+  .web-template-hero {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 2px;
+  }
+  /* 创建入口双栏：克隆（高频）占主列，上传占副列 */
+  .tpl-create-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+  .tpl-create-grid > .panel { margin-top: 0; height: 100%; }
+  @media (max-width: 1280px) {
+    .tpl-create-grid { grid-template-columns: 1fr; }
+  }
+  /* 部署表「启用到节点」内联控件的规整两行布局 */
+  .deploy-form .actions-inline {
+    display: grid !important;
+    grid-template-columns: minmax(90px, 1.2fr) 82px minmax(70px, 1fr) auto;
+    align-items: center;
+  }
+  .deploy-form .actions-inline select,
+  .deploy-form .actions-inline input { width: 100%; min-width: 0; }
+  .deploy-form + form { margin-top: 8px; }
+  .web-template-kpi {
+    position: relative;
+    overflow: hidden;
+    min-height: 118px;
+    border: 1px solid rgba(96, 165, 250, 0.16);
+    border-radius: 20px;
+    padding: 18px;
+    background:
+      radial-gradient(circle at 92% 8%, rgba(14, 165, 233, 0.18), transparent 42%),
+      linear-gradient(180deg, rgba(15, 23, 42, 0.78), rgba(8, 13, 25, 0.78));
+    box-shadow: var(--shadow-card);
+  }
+  [data-theme="light"] .web-template-kpi {
+    border-color: rgba(15, 23, 42, 0.1);
+    background:
+      radial-gradient(circle at 92% 8%, rgba(37, 99, 235, 0.08), transparent 46%),
+      linear-gradient(180deg, #ffffff, #f6f9fe);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  }
+  [data-theme="light"] .web-template-kpi strong { color: #0f172a; }
+  [data-theme="light"] .web-template-kpi span { color: #64748b; }
+  [data-theme="light"] .web-template-kpi p { color: #64748b; }
+  [data-theme="light"] .upload-drop { background: rgba(37, 99, 235, 0.04); border-color: rgba(37, 99, 235, 0.3); }
+  [data-theme="light"] .clone-help { background: rgba(37, 99, 235, 0.05); border-color: rgba(37, 99, 235, 0.16); color: #475569; }
+  [data-theme="light"] .clone-help strong { color: #0f172a; }
+  [data-theme="light"] .template-name-cell strong { color: #0f172a; }
+  [data-theme="light"] .template-meta-line code { color: #1d4ed8; }
+  [data-theme="light"] .clone-field-label > span { color: #334155; }
+  .web-template-kpi span {
+    display: block;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .web-template-kpi strong {
+    display: block;
+    margin-top: 12px;
+    color: #f8fbff;
+    font-family: "Fira Code", monospace;
+    font-size: 30px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .web-template-kpi p {
+    margin: 10px 0 0;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  .upload-drop {
+    display: grid;
+    gap: 8px;
+    padding: 16px;
+    border: 1px dashed rgba(96, 165, 250, 0.34);
+    border-radius: 18px;
+    background: rgba(59, 130, 246, 0.07);
+  }
+  .upload-drop input[type="file"] {
+    border-style: dashed;
+    background: rgba(2, 6, 23, 0.24);
+  }
+  .clone-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .clone-row-full {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .clone-help {
+    padding: 10px 12px;
+    border: 1px solid rgba(96, 165, 250, 0.18);
+    border-radius: 12px;
+    color: var(--muted-foreground);
+    background: rgba(59, 130, 246, 0.06);
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .clone-help strong { color: #dbeafe; }
+  .clone-ua-input {
+    min-height: 68px;
+    font-family: "Fira Code", monospace;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  .clone-field-label {
+    display: grid;
+    gap: 6px;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .clone-field-label > span {
+    color: #dbeafe;
+    letter-spacing: .02em;
+  }
+  .template-name-cell {
+    min-width: 220px;
+  }
+  .template-name-cell strong {
+    display: block;
+    color: #f8fbff;
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+  .template-meta-line {
+    color: var(--muted-foreground);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .template-meta-line.tpl-meta-compact { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .template-meta-line code {
+    color: #93c5fd;
+    word-break: break-all;
+  }
+  .clone-source-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(34, 211, 238, 0.22);
+    background: rgba(34, 211, 238, 0.08);
+    color: #bae6fd;
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .clone-source-badge.language {
+    border-color: rgba(52, 211, 153, 0.24);
+    background: rgba(52, 211, 153, 0.08);
+    color: #bbf7d0;
+  }
+  .deploy-form {
+    min-width: 320px;
+  }
+  .deploy-form .actions-inline {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+  .deploy-form select {
+    min-width: 120px;
+  }
+  .deploy-form input[type="number"] {
+    width: 72px;
+    min-width: 60px;
+    text-align: center;
+    font-family: "Fira Code", monospace;
+  }
+  .deploy-form input[type="text"] {
+    min-width: 80px;
+    font-family: "Fira Code", monospace;
+  }
+  .deploy-form button {
+    width: auto;
+    min-width: 72px;
+  }
+  .btn-preview {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 11px 13px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: #0a0a0a;
+    background: linear-gradient(to bottom, #ffffff, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.72));
+    border: none;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 160ms ease, box-shadow 160ms ease;
+  }
+  .btn-preview:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5);
+  }
+  .btn-preview:active {
+    transform: translateY(0) scale(0.985);
+  }
+  .btn-preview:focus-visible {
+    outline: 2px solid rgba(34, 211, 238, 0.6);
+    outline-offset: 2px;
+  }
+  /* 紧凑行内用法（克隆结果条 / 部署管理表等） */
+  .actions-inline .btn-preview, .clone-msg .btn-preview {
+    padding: 5px 12px;
+    font-size: 12px;
+  }
+  /* 与 secondary 按钮同排的深色变体（已部署模板管理表） */
+  .btn-preview.subtle {
+    color: #e5e7eb;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    box-shadow: none;
+  }
+  .btn-preview.subtle:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.09);
+    box-shadow: none;
+  }
+  .clone-msg {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .clone-msg-ok {
+    background: rgba(52, 211, 153, 0.10);
+    border: 1px solid rgba(52, 211, 153, 0.28);
+    color: #bbf7d0;
+  }
+  .clone-msg-err {
+    background: rgba(251, 113, 133, 0.10);
+    border: 1px solid rgba(251, 113, 133, 0.28);
+    color: #fecdd3;
+  }
+  .clone-msg-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .grid-top { align-items: start; }
+  @media (max-width: 980px) {
+    .web-template-hero { grid-template-columns: 1fr; }
+    .deploy-form .actions-inline { flex-direction: column; }
+    .deploy-form button { width: 100%; }
+    .clone-row { grid-template-columns: 1fr; }
+    .clone-msg { align-items: flex-start; flex-direction: column; }
+  }
+</style>
+
+<div class="web-template-hero">
+  <div class="web-template-kpi">
+    <span>Template Pages</span>
+    <strong>{{ items|length }}</strong>
+    <p>已上传的 Web 蜜罐页面模板，可直接分配到节点。</p>
+  </div>
+  <div class="web-template-kpi">
+    <span>Deploy Nodes</span>
+    <strong>{{ nodes|length }}</strong>
+    <p>可承载 Web 应用蜜罐的受控节点。</p>
+  </div>
+  <div class="web-template-kpi">
+    <span>Management Scope</span>
+    <strong>Web</strong>
+    <p>本页仅覆盖页面模板、入口路径和 Web 节点部署。</p>
+  </div>
+</div>
+
+{% call modal_dialog('clone-modal', '一键克隆站点为模板', '输入需克隆的互联网系统 URL，系统使用中文 UA / Accept-Language 渲染页面并抓取前端资源，保存为可重复部署的 Web 应用蜜罐模板。', wide=true) %} '输入需克隆的互联网系统 URL，系统使用中文 UA / Accept-Language 渲染页面并抓取前端资源，保存为可重复部署的 Web 应用蜜罐模板') }}
+  <form id="clone-form" class="stack">
+    <div class="clone-row">
+      <input name="clone_url" type="text" placeholder="https://target.example.com/login 或 target.example.com/login" required>
+      <input name="name" placeholder="模板名称（留空则自动取域名）">
+    </div>
+    <div class="clone-row">
+      <select name="web_stack">
+        <option value="管理后台">管理后台</option>
+        <option value="OA 登录">OA 登录</option>
+        <option value="云控制台">云控制台</option>
+        <option value="API 文档">API 文档</option>
+        <option value="业务门户">业务门户</option>
+        <option value="自定义页面" selected>自定义页面</option>
+      </select>
+      <input name="entry_path" value="/" placeholder="入口路径，如 /login">
+    </div>
+    <textarea name="description" placeholder="描述页面用途、仿真业务或采集点（留空则自动填写来源 URL）"></textarea>
+    <div class="clone-row">
+      <label class="clone-field-label">
+        <span>语言请求头</span>
+        <select name="clone_accept_language">
+          <option value="{{ clone_default_accept_language }}" selected>中文优先 · {{ clone_default_accept_language }}</option>
+          <option value="zh-CN,zh;q=0.95">仅中文 · zh-CN</option>
+          <option value="zh-TW,zh;q=0.95,en;q=0.35">繁体中文 · zh-TW</option>
+          <option value="en-US,en;q=0.9">英文 · en-US</option>
+        </select>
+      </label>
+      <label class="clone-field-label">
+        <span>渲染等待</span>
+        <input type="number" name="clone_render_wait" value="8" min="2" max="20" placeholder="秒">
+      </label>
+    </div>
+    <label class="clone-field-label">
+      <span>User-Agent（用于控制桌面/移动端与部分站点语言版本）</span>
+      <textarea class="clone-ua-input" name="clone_user_agent" spellcheck="false">{{ clone_default_user_agent }}</textarea>
+    </label>
+    <div class="clone-row">
+      <label class="clone-field-label">
+        <span>触发后跳转动作</span>
+        <select name="redirect_action" id="redirect-action-select">
+          <option value="fake_error" selected>模拟登录失败（诱导反复尝试）</option>
+          <option value="warning">警告页面（拦截并提示）</option>
+          <option value="original">原站点跳转（跳到真实系统）</option>
+          <option value="custom">自定义 URL 跳转</option>
+        </select>
+      </label>
+      <label class="clone-field-label" id="redirect-url-label" style="display:none;">
+        <span>自定义跳转 URL</span>
+        <input name="redirect_url" type="text" placeholder="https://example.com/safe-page" value="">
+      </label>
+    </div>
+    <div class="clone-help">
+      <strong>触发后跳转：</strong>攻击者提交登录凭证后，页面可执行四种动作之一 —— <strong>模拟登录失败</strong>（提示密码错误并清空密码框，诱导攻击者反复尝试以收割更多凭据）、<strong>警告页面</strong>（显示拦截提示，凭证已记录）、<strong>原站点跳转</strong>（跳转到克隆源 URL）、<strong>自定义 URL 跳转</strong>（跳转到指定地址）。
+    </div>
+    <div class="clone-help">
+      <strong>克隆范围：</strong>默认以 zh-CN 语言环境、桌面 Chrome UA 渲染页面，并额外重写 JS / CSS 内的资源路径；仅克隆前端静态资源，不执行业务逻辑、不递归抓取整站。若目标站点根据 UA 输出移动端或英文版，可在这里切换 UA 与语言请求头后重新克隆。
+    </div>
+    <button type="submit" id="clone-btn">克隆并创建模板</button>
+  </form>
+
+  <!-- 进度条（克隆期间显示） -->
+  <div id="clone-progress" style="display:none; margin-top:14px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+      <span id="clone-stage" style="color:#dbeafe; font-size:13px; font-weight:600;">准备中…</span>
+      <span id="clone-percent" style="color:#60a5fa; font-family:'Fira Code',monospace; font-size:13px;">0%</span>
+    </div>
+    <div style="height:6px; border-radius:3px; background:rgba(96,165,250,0.12); overflow:hidden;">
+      <div id="clone-bar" style="height:100%; width:0%; border-radius:3px; background:linear-gradient(90deg,#3b82f6,#60a5fa); transition:width .4s ease;"></div>
+    </div>
+    <div style="margin-top:8px; text-align:right;">
+      <button type="button" id="clone-cancel-btn" class="secondary" style="font-size:12px; padding:4px 12px;">取消</button>
+    </div>
+  </div>
+
+  <!-- 结果消息 -->
+  <div id="clone-result"></div>
+
+  {% if clone_ok %}
+  <div class="clone-msg clone-msg-ok">
+    <span>克隆成功 — 模板「{{ clone_name }}」已创建，抓取 {{ clone_assets }} 个资源（{{ clone_kb }} KB）。</span>
+    {% if clone_template_id %}
+    <span class="clone-msg-actions">
+      <a class="btn-preview" href="/admin/templates/{{ clone_template_id }}/preview" target="_blank">立即浏览</a>
+    </span>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% if clone_err %}
+  <div class="clone-msg clone-msg-err">克隆失败 — {{ clone_err }}</div>
+  {% endif %}
+</section>
+
+{% endcall %}
+{% call modal_dialog('upload-modal', '上传 Web 应用蜜罐模板', '上传仿真页面或静态页面包，并定义入口路径与页面类型。') %} '上传仿真页面或静态页面包，并定义入口路径与页面类型') }}
+    <form method="post" action="/admin/templates" enctype="multipart/form-data" class="stack">
+      <div class="grid-2">
+        <input name="name" placeholder="模板名称，如 仿真OA登录页" required>
+        <select name="web_stack" required>
+          <option value="管理后台">管理后台</option>
+          <option value="OA 登录">OA 登录</option>
+          <option value="云控制台">云控制台</option>
+          <option value="API 文档">API 文档</option>
+          <option value="业务门户">业务门户</option>
+          <option value="自定义页面">自定义页面</option>
+        </select>
+      </div>
+      <div class="grid-2">
+        <input name="entry_path" value="/" placeholder="入口路径，如 /login" required>
+        <input name="deploy_mode" value="静态页面仿真" placeholder="部署方式">
+      </div>
+      <div class="upload-drop">
+        <div class="muted">模板页面上传：支持 HTML、静态资源压缩包或页面配置文件。</div>
+        <input type="file" name="template_file" accept=".html,.htm,.zip,.tar,.gz,.tgz,.json,.txt">
+      </div>
+      <textarea name="description" placeholder="描述页面用途、仿真业务、采集点或触发条件"></textarea>
+      <button type="submit">上传并创建模板</button>
+    </form>
+{% endcall %}
+
+  <section class="panel">
+    {{ section_header('Web 应用蜜罐部署', '启用模板后立即在指定节点的指定端口生效；停用可重新启用而不丢失配置') }}
+    {% if deploy_ok %}
+    <div class="clone-msg clone-msg-ok">部署成功 — 模板「{{ deploy_name }}」已下发至节点「{{ deploy_node }}」，监听 :{{ deploy_port }}{{ deploy_route }}</div>
+    {% endif %}
+    {% if enable_ok %}
+    <div class="clone-msg clone-msg-ok">已启用 — 模板「{{ enable_name }}」现在在节点「{{ enable_node }}」的 :{{ enable_port }}{{ enable_route }} 提供蜜罐访问。</div>
+    {% endif %}
+    {% if enable_err %}
+    <div class="clone-msg clone-msg-err">{{ enable_err }}</div>
+    {% endif %}
+    {% if disable_ok %}
+    <div class="clone-msg clone-msg-ok">已停用 — 模板「{{ disable_name }}」已从 {{ disable_count }} 个部署中移除，仍保留配置记录。</div>
+    {% endif %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="cell-prose">模板</th>
+            <th>Web 类型</th>
+            <th>入口路径</th>
+            <th>上传页面</th>
+            <th>启用到节点</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          {% set is_enabled = item.id in deployed_urls %}
+          <tr>
+            <td class="template-name-cell cell-prose">
+              <strong>{{ item.name }}</strong>
+              <div class="template-meta-line" title="{{ item.description or '' }}">{{ item.description or '暂无描述' }}</div>
+              <div class="template-meta-line tpl-meta-compact"
+                   title="{% if item.clone_source_url %}来源：{{ item.clone_source_url }}{% endif %} · 语言：{{ item.clone_accept_language or '-' }} · 创建：{{ item.created_at }}">{% if item.created_by_clone %}<span class="clone-source-badge">URL 克隆</span> {% endif %}{{ item.created_at }}</div>
+            </td>
+            <td><span class="pill">{{ item.web_stack }}</span></td>
+            <td><code>{{ item.entry_path }}</code></td>
+            <td>
+              {% if item.artifact_name %}
+                <span class="pill">{{ item.artifact_name }}</span>
+                {% if item.clone_asset_count is not none %}
+                <div class="template-meta-line">资源：{{ item.clone_asset_count }} 个{% if item.clone_total_kb is not none %} · {{ item.clone_total_kb }} KB{% endif %}</div>
+                {% endif %}
+              {% else %}
+                <span class="muted">未上传文件</span>
+              {% endif %}
+            </td>
+            <td>
+              <form method="post" action="/admin/templates/{{ item.id }}/enable" class="deploy-form">
+                <div class="actions-inline">
+                  <select name="node_id" {% if not nodes %}disabled{% endif %}>
+                    {% for node in nodes %}
+                    <option value="{{ node.id }}">{{ node.name }}</option>
+                    {% endfor %}
+                  </select>
+                  <input type="number" name="deploy_port" value="8080" min="1" max="65535" placeholder="端口">
+                  <input type="text" name="deploy_route" value="{{ item.entry_path }}" placeholder="/path">
+                  <button type="submit" {% if not nodes %}disabled{% endif %} class="primary">启用</button>
+                </div>
+              </form>
+              {% if is_enabled %}
+              <form method="post" action="/admin/templates/{{ item.id }}/disable" style="margin-top:6px">
+                <button type="submit" class="secondary btn-sm">停用</button>
+              </form>
+              {% endif %}
+            </td>
+            <td>
+              <div class="actions-inline">
+                {% if is_enabled %}
+                <a class="btn-preview" href="{{ deployed_urls[item.id] }}" target="_blank">浏览部署</a>
+                {% elif item.artifact_path %}
+                <a class="btn-preview" href="/admin/templates/{{ item.id }}/preview" target="_blank">浏览模板</a>
+                {% else %}
+                <span class="muted">暂无预览</span>
+                {% endif %}
+                <form method="post" action="/admin/templates/{{ item.id }}/delete">
+                  <button class="danger" type="submit">删除</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          {{ empty_state('暂无 Web 应用蜜罐模板', '上传模板页面后会显示在这里，并可一键部署到节点。', 6, 'TP') }}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    {{ section_header('已部署模板管理', '查看和管理已下发到节点的 Web 应用蜜罐模板') }}
+    {% if undeploy_ok %}
+    <div class="clone-msg clone-msg-ok">已卸载 — 节点「{{ undeploy_node }}」上的模板已移除。</div>
+    {% endif %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>节点</th>
+            <th>模板</th>
+            <th>Web 类型</th>
+            <th>监听端口</th>
+            <th>路由地址</th>
+            <th>状态</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in deployed %}
+          <tr>
+            <td>
+              <strong style="color:#f8fbff">{{ d.node_name }}</strong>
+            </td>
+            <td>
+              <span class="pill">{{ d.template_name }}</span>
+            </td>
+            <td><span class="pill">{{ d.web_stack }}</span></td>
+            <td><code>{{ d.listen_address }}:{{ d.deploy_port }}</code></td>
+            <td><code>{{ d.deploy_route }}</code></td>
+            <td>
+              {% if d.node_status == 'online' %}
+                <span class="pill" style="background:rgba(52,211,153,0.13);border-color:rgba(52,211,153,0.24);color:#bbf7d0">在线</span>
+              {% else %}
+                <span class="pill" style="background:rgba(251,113,133,0.10);border-color:rgba(251,113,133,0.24);color:#fecdd3">离线</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="actions-inline">
+                {% if d.template_id %}
+                <a class="btn-preview subtle" href="/admin/templates/{{ d.template_id }}/preview" target="_blank">预览</a>
+                <form method="post" action="/admin/templates/{{ d.template_id }}/disable" style="margin:0">
+                  <button class="secondary btn-sm" type="submit">停用</button>
+                </form>
+                {% endif %}
+                <form method="post" action="/admin/templates/{{ d.node_id }}/undeploy" style="margin:0">
+                  <button class="secondary" type="submit">卸载</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          {{ empty_state('暂无已部署的 Web 应用蜜罐模板', '在上方选择模板并部署到节点后，部署记录将显示在这里。', 7, 'DP') }}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+<script>
+// Toggle redirect URL field visibility
+(function(){
+  var sel = document.getElementById('redirect-action-select');
+  var urlLabel = document.getElementById('redirect-url-label');
+  if (sel && urlLabel) {
+    function update() { urlLabel.style.display = (sel.value === 'custom') ? '' : 'none'; }
+    sel.addEventListener('change', update);
+    update();
+  }
+})();
+
+(function(){
+  var form    = document.getElementById('clone-form');
+  var btn     = document.getElementById('clone-btn');
+  var prog    = document.getElementById('clone-progress');
+  var bar     = document.getElementById('clone-bar');
+  var stageEl = document.getElementById('clone-stage');
+  var pctEl   = document.getElementById('clone-percent');
+  var result  = document.getElementById('clone-result');
+  var cancel  = document.getElementById('clone-cancel-btn');
+  var polling = null;
+
+  if (!form) return;
+
+  function showProgress() {
+    prog.style.display = '';
+    bar.style.width    = '0%';
+    stageEl.textContent = '准备中…';
+    pctEl.textContent   = '0%';
+    result.innerHTML    = '';
+    btn.disabled = true;
+    btn.textContent = '克隆中…';
+  }
+
+  function hideProgress() {
+    prog.style.display = 'none';
+    btn.disabled = false;
+    btn.textContent = '克隆并创建模板';
+    if (polling) { clearInterval(polling); polling = null; }
+  }
+
+  function pollStatus(taskId) {
+    polling = setInterval(function(){
+      fetch('/admin/templates/clone/status/' + taskId, {credentials:'same-origin'})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          bar.style.width    = (d.percent || 0) + '%';
+          stageEl.textContent = d.stage || '';
+          pctEl.textContent   = (d.percent || 0) + '%';
+
+          if (d.done) {
+            hideProgress();
+            if (d.error) {
+              result.innerHTML = '<div class="clone-msg clone-msg-err">克隆失败 — ' + d.error + '</div>';
+            } else if (d.result) {
+              var r = d.result;
+              result.innerHTML =
+                '<div class="clone-msg clone-msg-ok">' +
+                '<span>克隆成功 — 模板「' + r.template_name + '」已创建，抓取 ' + r.asset_count + ' 个资源（' + r.size_kb + ' KB）。</span>' +
+                '<span class="clone-msg-actions">' +
+                '<a class="btn-preview" href="/admin/templates/' + r.template_id + '/preview" target="_blank">立即浏览</a>' +
+                '</span></div>';
+            }
+          }
+        })
+        .catch(function(e){ /* keep polling */ });
+    }, 1000);
+  }
+
+  form.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    var fd = new FormData(form);
+    showProgress();
+    fetch('/admin/templates/clone', {method:'POST', body:fd, credentials:'same-origin'})
+      .then(function(r){
+        var ct = r.headers.get('content-type') || '';
+        if (ct.indexOf('json') !== -1) return r.json();
+        // If server returned redirect (error), reload the page to show server-side messages
+        window.location.reload();
+        return null;
+      })
+      .then(function(d){
+        if (d && d.task_id) {
+          pollStatus(d.task_id);
+        } else {
+          hideProgress();
+        }
+      })
+      .catch(function(e){
+        hideProgress();
+        result.innerHTML = '<div class="clone-msg clone-msg-err">请求失败 — ' + e.message + '</div>';
+      });
+  });
+
+  cancel.addEventListener('click', function(){
+    hideProgress();
+  });
+})();
+</script>
+
+{% endblock %}
