@@ -144,6 +144,10 @@ AgentCapture 是一套面向安全值守、红蓝对抗与互联网系统接入�
 
 ## 系统架构
 
+![AgentCapture 系统架构](docs/architecture.png)
+
+组件数据流：
+
 ```mermaid
 flowchart LR
     A[真实互联网系统] --> B[反向代理 / FastAPI Middleware]

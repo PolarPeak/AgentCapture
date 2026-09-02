@@ -144,6 +144,10 @@ All five were recruited online: each agent autonomously completed the full onboa
 
 ## Architecture
 
+![AgentCapture Architecture](docs/architecture.png)
+
+Component data flow:
+
 ```mermaid
 flowchart LR
     A[Internet Systems] --> B[Reverse Proxy / FastAPI Middleware]
