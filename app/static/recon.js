@@ -74,7 +74,7 @@
     return [...new Set(detected)];
   }
 
-  function collectCanvasHash() {
+  function collectCanvasDataURL() {
     try {
       const canvas = document.createElement("canvas");
       canvas.width = 280;
@@ -91,10 +91,35 @@
       ctx.beginPath();
       ctx.arc(80, 20, 10, 0, Math.PI * 2, true);
       ctx.fill();
-      return canvas.toDataURL().substring(0, 120);
+      return canvas.toDataURL();
     } catch (_) {
       return "";
     }
+  }
+
+  function fnv1a64(str) {
+    // Two-lane FNV-1a: deterministic fallback when SubtleCrypto is
+    // unavailable (e.g. insecure origins without crypto.subtle).
+    var h1 = 0x811c9dc5, h2 = 0xc2b2ae35;
+    for (var i = 0; i < str.length; i++) {
+      var c = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ c, 16777619) >>> 0;
+      h2 = Math.imul(h2 ^ c, 2246822519) >>> 0;
+    }
+    return ("0000000" + h1.toString(16)).slice(-8) + ("0000000" + h2.toString(16)).slice(-8);
+  }
+
+  async function digestHex(str) {
+    if (str && window.crypto && crypto.subtle && crypto.subtle.digest) {
+      try {
+        const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+        const bytes = new Uint8Array(buf);
+        let hex = "";
+        for (let i = 0; i < bytes.length; i++) hex += ("0" + bytes[i].toString(16)).slice(-2);
+        return hex;
+      } catch (_) {}
+    }
+    return str ? fnv1a64(str) : "";
   }
 
   function collectWebGL() {
@@ -160,10 +185,10 @@
     }, 3000);
   }
 
-  function send(webrtcIPs) {
+  async function send(webrtcIPs) {
     payload.plugins = collectPlugins();
     payload.fonts = collectFonts();
-    payload.canvas_hash = collectCanvasHash();
+    payload.canvas_hash = await digestHex(collectCanvasDataURL());
     const gl = collectWebGL();
     payload.webgl_vendor = gl.vendor;
     payload.webgl_renderer = gl.renderer;

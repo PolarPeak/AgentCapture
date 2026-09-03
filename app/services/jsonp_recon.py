@@ -68,7 +68,9 @@ def sanitize_webrtc_ips(values: list[str] | None) -> tuple[list[str], list[str]]
 def process_fingerprint(payload: dict) -> FingerprintResult:
     result = FingerprintResult(
         webrtc_ips=payload.get("webrtc_ips") or [],
-        canvas_hash=payload.get("canvas_hash") or "",
+        # hex digest expected; hard cap keeps legacy dataURL prefixes and
+        # hostile oversized values out of storage
+        canvas_hash=str(payload.get("canvas_hash") or "")[:128],
         webgl_vendor=payload.get("webgl_vendor") or "",
         webgl_renderer=payload.get("webgl_renderer") or "",
         plugins=payload.get("plugins") or [],
