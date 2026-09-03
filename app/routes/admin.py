@@ -1782,6 +1782,70 @@ def _clone_remote_site(
     return result
 
 
+def _dismiss_open_modals(page) -> None:
+    """Close modal dialogs / overlays the site opened during page load.
+
+    A clone must capture the pristine landing state; a modal frozen open
+    (client-detection dialogs, cookie banners, welcome overlays) makes the
+    clone obviously different from a fresh visit. Strategy: Escape first,
+    then common close controls, then remove still-visible overlay nodes.
+    """
+    try:
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(250)
+    except Exception:
+        pass
+    close_selectors = [
+        "[class*='modal'] [class*='close']",
+        "[class*='dialog'] [class*='close']",
+        "[class*='modal'] button[aria-label*='close' i]",
+        "[class*='dialog'] button[aria-label*='close' i]",
+        ".el-dialog__close", ".el-message-box__close", ".ant-modal-close",
+        ".layui-layer-close", "[data-dismiss='modal']",
+        "button.close", ".modal .close", ".popup .close",
+    ]
+    for sel in close_selectors:
+        try:
+            for el in page.query_selector_all(sel):
+                try:
+                    if el.is_visible():
+                        el.click(timeout=400)
+                        page.wait_for_timeout(120)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+    # Last resort: hide remaining fixed/absolute dialog containers. Some
+    # frameworks (avalon etc.) render dialogs at low z-index (z≈13) and toggle
+    # them via data attributes, so class- and data-attribute matching carries
+    # the detection while the size/position guard avoids nuking page chrome.
+    try:
+        page.evaluate(
+            """() => {
+              const gone = [];
+              document.querySelectorAll('.dialog, [class*="dialog"], [class*="modal"], [data-dialog-ctr]').forEach((el) => {
+                const cs = getComputedStyle(el);
+                if ((cs.position === 'fixed' || cs.position === 'absolute') && cs.display !== 'none'
+                    && el.offsetWidth > 200 && el.offsetHeight > 120) {
+                  el.style.setProperty('display', 'none', 'important');
+                  gone.push(el.className || el.id || el.tagName);
+                }
+              });
+              document.querySelectorAll('[class*="modal-backdrop"], [class*="mask"], [class*="overlay"]').forEach((el) => {
+                const cs = getComputedStyle(el);
+                if (cs.position === 'fixed' && el.offsetWidth >= window.innerWidth * 0.9) {
+                  el.style.setProperty('display', 'none', 'important');
+                }
+              });
+              document.body.style.overflow = '';
+              document.documentElement.style.overflow = '';
+              return gone;
+            }"""
+        )
+    except Exception:
+        pass
+
+
 def _clone_with_playwright(
     clone_url: str,
     clone_dir: Path,
@@ -1965,6 +2029,15 @@ def _clone_with_playwright(
             )
         except Exception:
             original_script_srcs = []
+
+        # Dismiss any modal / dialog the site opened during load (client
+        # checks, cookie banners, welcome overlays): the snapshot must be the
+        # pristine landing state, not a transient dialog frozen into the clone.
+        try:
+            _dismiss_open_modals(page)
+            page.wait_for_timeout(300)
+        except Exception:
+            pass
 
         html = page.content()
         # The rendered document may sit at a different URL than the requested
