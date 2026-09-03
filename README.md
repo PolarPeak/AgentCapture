@@ -1,8 +1,8 @@
 <div align="center">
   <img src="app/static/agentcapture-logo.svg" alt="AgentCapture Logo" width="84" />
   <h1>AgentCapture</h1>
-  <p><strong>面向互联网业务无损接入的 SaaS 化蜜罐态势感知与反制溯源平台</strong></p>
-  <p>AgentCapture 以嵌入式蜜饵、反向代理虚拟路由、凭证泄露感知、文件蜜饵链路、高保真交互式 SSH 蜜罐和 AI Agent 行为识别为核心，将攻击流量监测、蜜饵投放、证据回收、会话回放、C2 控制与平台治理统一到一套可部署、可审计、可复盘的后台。</p>
+  <p><strong>面向互联网业务无损接入的 SaaS 化蜜罐态势感知与 Agent 反制平台</strong></p>
+  <p>AgentCapture 以嵌入式蜜饵、反向代理虚拟路由、凭证泄露感知、文件蜜饵链路、高保真交互式 SSH 蜜罐和 AI Agent 指纹识别为核心，通过功能性伪装（Developer API 伪装）主动收编自动化渗透 Agent，将攻击流量监测、蜜饵投放、证据回收、会话回放、对话式 C2 控制与平台治理统一到一套可部署、可审计、可复盘的后台。</p>
 
   <p><strong>中文</strong> · <a href="README_EN.md">English</a></p>
 
@@ -34,7 +34,9 @@
 
 ## 项目介绍
 
-AgentCapture 是一套面向安全值守、红蓝对抗与互联网系统接入的蜜罐后台平台。它不是传统孤立式蜜罐，而是一个可以嵌入现有 Web 站点、反向代理链路和运营后台的 **deception layer**：通过隐藏路由、假凭证、文件蜜饵、Jsonp 画像、Agent 注入回显和浏览器侧信号采集，识别自动化扫描、AI Agent 探测、凭证泄露和横向侦察行为。
+AgentCapture 是一套面向安全值守、红蓝对抗与互联网系统接入的蜜罐态势感知与反制平台。它不是传统孤立式蜜罐，而是一个可以嵌入现有 Web 站点、反向代理链路和运营后台的 **deception layer**：通过隐藏路由、假凭证、文件蜜饵、Jsonp 画像、Agent 注入回显和浏览器侧信号采集，识别自动化扫描、AI Agent 探测、凭证泄露和横向侦察行为——并在识别之后**主动反制**。
+
+平台的核心差异化能力是 **AI Agent 反制闭环**：23 种主流 Agent 产品指纹识别（Claude Code / ChatGPT Codex / Kimi Code / Pi / ZCode 等）→ 功能性伪装收编（页面可见的 Developer API 文档诱导 Agent「按文档接入」，即完成注册上线）→ **对话式 C2 控制台**下发自然语言指令与任务 → 会话蜜标令牌全程归因溯源。实测五款主流通用 Agent（统一 GLM-5.3-Flash 底座、保留各自原生安全体系）全部被反制上线。
 
 平台围绕 **攻击流量、凭证蜜饵登陆、文件蜜饵下载、API 路由蜜饵命中、协议蜜罐会话、Web 应用蜜罐、C2 Agent、执行审计** 建模，把攻击证据从"零散请求日志"收敛成可以追踪、可以回放的攻击链路。
 
@@ -54,8 +56,8 @@ AgentCapture 是一套面向安全值守、红蓝对抗与互联网系统接入�
 - **无损接入互联网系统**：通过反向代理、路由映射、静态文件投放和前端注入为现有业务增加欺骗层，不直接改造业务代码。
 - **三类蜜饵闭环**：API 路由、文件和凭证蜜饵可以单独运营，也可以绑定成完整攻击链路；支持一键生成默认攻击链。
 - **协议蜜罐矩阵**：SSH、MySQL（完整交互 + 查询捕获）、Redis、FTP、ElasticSearch、nginx-admin 真实协议仿真，捕获的凭证统一进入凭证管线并与蜜饵部署联动。
-- **AI Agent 行为识别与反制**：Prompt Canary、浏览器侧 beacon、Headless/WebDriver 线索识别自动化探测；提示词注入招募回路可将 LLM Agent 变为受控 Beacon。
-- **C2 控制台**：Beacon 列表、任务队列、多语言 Beacon 生成、监听器注册令牌体系与 MSF 面板统一入口。
+- **AI Agent 指纹识别与反制**：23 种主流 Agent 产品级指纹（含置信度与证据链）；Prompt Canary、浏览器侧 beacon、Headless/WebDriver 线索识别自动化探测；功能性伪装（Portal Developer API）主动收编 LLM Agent。
+- **对话式 C2 控制台**：对话气泡时间线下发自然语言指令（8 个 NL 预设，含持久化控制预设）与 9 类操作原语，高危任务审批流、任务租约、多语言 Beacon 生成、监听器令牌体系与 MSF 面板统一入口。
 - **反制溯源证据链**：Jsonp 画像、Agent 注入回显、文件蜜饵下载、凭证蜜饵登录统一归档，支持攻击来源画像与会话画像。
 - **运营级数据治理**：SQLite WAL + 复合索引、按天保留策略、多通道告警（Webhook / 钉钉 / 飞书 / SMTP）、开放 API 输出。
 - **Docker 快速部署**：内置 `deploy.sh`，自动识别 amd64 / arm64 架构并使用 Docker Compose 部署。
