@@ -224,9 +224,17 @@
   }
   /* 紧凑行内用法（克隆结果条 / 部署管理表等） */
   .actions-inline .btn-preview, .clone-msg .btn-preview {
-    padding: 5px 12px;
-    font-size: 12px;
+    height: 29px !important;
+    padding: 0 12px !important;
+    font-size: 12px !important;
+    border-radius: 8px !important;
   }
+  /* 本页两表的操作按钮统一 29px 控制高度 */
+  .table-wrap td .btn-sm, .table-wrap td button { height: 29px !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+  /* 部署表单：控件与按钮同高，路径输入框不再被挤扁 */
+  .deploy-form .actions-inline button { height: 29px !important; }
+  .deploy-form .actions-inline select,
+  .deploy-form .actions-inline input { height: 29px !important; padding-top: 0; padding-bottom: 0; }
   /* 与 secondary 按钮同排的深色变体（已部署模板管理表） */
   .btn-preview.subtle {
     color: #e5e7eb;
@@ -481,7 +489,7 @@
                   </select>
                   <input type="number" name="deploy_port" value="8080" min="1" max="65535" placeholder="端口">
                   <input type="text" name="deploy_route" value="{{ item.entry_path }}" placeholder="/path">
-                  <button type="submit" {% if not nodes %}disabled{% endif %} class="primary">启用</button>
+                  <button type="submit" {% if not nodes %}disabled{% endif %} class="primary btn-sm">启用</button>
                 </div>
               </form>
               {% if is_enabled %}
@@ -500,7 +508,7 @@
                 <span class="muted">暂无预览</span>
                 {% endif %}
                 <form method="post" action="/admin/templates/{{ item.id }}/delete">
-                  <button class="danger" type="submit">删除</button>
+                  <button class="danger btn-sm" type="submit">删除</button>
                 </form>
               </div>
             </td>
@@ -559,7 +567,7 @@
                 </form>
                 {% endif %}
                 <form method="post" action="/admin/templates/{{ d.node_id }}/undeploy" style="margin:0">
-                  <button class="secondary" type="submit">卸载</button>
+                  <button class="danger btn-sm" type="submit">卸载</button>
                 </form>
               </div>
             </td>
