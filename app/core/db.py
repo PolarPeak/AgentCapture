@@ -77,6 +77,7 @@ def init_db() -> None:
     from app.models.node import Node  # noqa: F401
     from app.models.node_runtime import NodeHeartbeat, NodeTask  # noqa: F401
     from app.models.notification import AlertChannel, AlertPolicy  # noqa: F401
+    from app.models.portal_config import PortalConfig  # noqa: F401
     from app.models.prompt_injection import PromptInjectionTemplate  # noqa: F401
     from app.models.service import ServiceCatalog, ServiceTemplate  # noqa: F401
     from app.models.user import User  # noqa: F401

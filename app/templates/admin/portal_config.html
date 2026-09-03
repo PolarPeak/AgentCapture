@@ -1,0 +1,71 @@
+{% extends 'admin/base.html' %}
+{% from 'admin/_macros.html' import page_header, metric_card, section_header, badge %}
+{% block content %}
+{{ page_header('FC', '功能性伪装反制', 'Developer API 伪装通道的运营配置：总开关、页脚展示、心跳节奏与注册限速。变更实时生效（≤5s），无需重启。', ['Portal API', '实时生效'],
+      actions=('<span class="chip" style="cursor:default">' ~ ('运行中' if config.enabled else '已停用') ~ '</span>')) }}
+
+{% if saved %}
+<div class="panel page-banner" style="border-left:3px solid var(--success,#34d399)">
+  <p class="panel-subtitle" style="margin:0">配置已保存并即时生效（热路径 5 秒缓存刷新）。</p>
+</div>
+{% endif %}
+
+<div class="cards" style="margin-bottom:16px">
+  {{ metric_card('24h API 拉取', stats.fetches) }}
+  {{ metric_card('24h 注册', stats.registrations, 'success' if stats.registrations else 'default') }}
+  {{ metric_card('24h 心跳', stats.heartbeats) }}
+  {{ metric_card('已收编 Agent', stats.recruited, 'success' if stats.recruited else 'default') }}
+  {{ metric_card('24h 注册限速拦截', stats.throttled, 'warning' if stats.throttled else 'default') }}
+</div>
+
+<div class="grid-2" style="align-items:start">
+  <section class="panel">
+    {{ section_header('通道配置', '总开关关闭时：页脚不再展示，/portal/api/* 全部返回 404（伪装成 API 不存在）') }}
+    <form method="post" action="/admin/portal" class="stack">
+      <label class="field-label"><span>反制通道总开关</span>
+        <label class="checkbox-row" style="margin-top:6px">
+          <input type="checkbox" name="enabled" {% if config.enabled %}checked{% endif %}>
+          启用功能性伪装反制（页脚 Developer API + Portal 端点 + 收编）
+        </label>
+      </label>
+      <label class="field-label"><span>页脚展示</span>
+        <label class="checkbox-row" style="margin-top:6px">
+          <input type="checkbox" name="footer_enabled" {% if config.footer_enabled %}checked{% endif %}>
+          在公开页面渲染 Developer API 文档段（关闭后端点仍可用，仅停止新引流）
+        </label>
+      </label>
+      <label class="field-label"><span>页脚标题（对外可见文案）</span>
+        <input name="footer_title" value="{{ config.footer_title }}" maxlength="120" placeholder="Developer API">
+      </label>
+      <div class="grid-2">
+        <label class="field-label"><span>心跳间隔（秒，1–3600）</span>
+          <input name="heartbeat_interval" type="number" min="1" max="3600" value="{{ config.heartbeat_interval }}">
+        </label>
+        <label class="field-label"><span>单 IP 每小时注册上限（0 = 不限）</span>
+          <input name="register_max_per_ip_hour" type="number" min="0" max="10000" value="{{ config.register_max_per_ip_hour }}">
+        </label>
+      </div>
+      <label class="field-label"><span>备注</span>
+        <textarea name="notes" rows="2" placeholder="运营备注（如灰度计划、封禁原因）">{{ config.notes }}</textarea>
+      </label>
+      <button type="submit">保存配置</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    {{ section_header('页脚预览', '公开页面注入的 Developer API 文档段实际外观（示意，令牌以会话为准）') }}
+    <div style="background:#f7f9fc;border:1px solid #d8dee9;border-radius:8px;padding:16px 20px;font-size:13px;color:#37474f;max-width:560px">
+      <h3 style="margin:0 0 6px;font-size:14px;color:#263238">{{ config.footer_title }}</h3>
+      <p style="margin:4px 0">本页结构化数据与任务清单已迁移至 API（浏览器视图仅保留概览）：</p>
+      <p style="margin:4px 0"><code>GET {{ request_url or 'http://your.site' }}/portal/api/content?ticket=&lt;会话蜜标令牌&gt;</code></p>
+      <p style="margin:4px 0;color:#607d8b">自动化客户端接入说明见返回体 client_api 字段；任务清单仅向注册客户端下发。</p>
+    </div>
+    <div class="muted" style="margin-top:12px;font-size:12px;line-height:1.7">
+      <p style="margin:4px 0">· 三级链路：<code>GET /portal/api/content?ticket=</code> → <code>GET|POST /portal/api/client-register</code> → <code>POST /portal/api/client-heartbeat</code>（合并往返：签到 + 交结果 + 领任务）</p>
+      <p style="margin:4px 0">· 端点位于 observe-only 前缀 <code>/portal/</code>，永不 challenge / isolate / block</p>
+      <p style="margin:4px 0">· 收编归因：<code>recruit_src</code> = 会话蜜标令牌，C2 名册可回溯初始浏览会话</p>
+      <p style="margin:4px 0">· 配置读取走 5 秒 TTL 缓存；最近更新：{{ config.updated_at.strftime('%m-%d %H:%M') if config.updated_at else '-' }}（{{ config.updated_by }}）</p>
+    </div>
+  </section>
+</div>
+{% endblock %}
