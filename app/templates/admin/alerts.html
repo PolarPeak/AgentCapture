@@ -11,15 +11,17 @@
 {% endif %}
 
 <div class="panel page-banner">
-  <div class="panel-header">
+  <div class="panel-header" style="align-items:center;">
     <div>
       <h3 class="panel-title">当前模式</h3>
-      <p class="panel-subtitle">
-        ALERTS_ENABLED = <code>{{ alerts_enabled }}</code> —
+      <p class="panel-subtitle" style="margin-top:4px;">
+        ALERTS_ENABLED = <code>{{ alerts_enabled }}</code>
         {% if alerts_enabled %}
-          <span style="color: var(--success, #34d399);">真实投递（所有满足策略的事件将发送到配置的 channel）</span>
+          <span class="badge badge-success" style="margin-left:6px">真实投递</span>
+          <span class="muted" style="margin-left:6px">满足策略的事件将发送到所配置的 channel</span>
         {% else %}
-          <span style="color: var(--muted-foreground, #94a3b8);">干跑模式（仅日志记录，不发送真实通知）。如需开启，请在 <code>.env</code> 中设置 <code>ALERTS_ENABLED=true</code> 并重启 uvicorn。</span>
+          <span class="badge badge-warning" style="margin-left:6px">干跑模式</span>
+          <span class="muted" style="margin-left:6px">仅日志记录，不发送真实通知；在 <code>.env</code> 中设置 <code>ALERTS_ENABLED=true</code> 并重启后生效</span>
         {% endif %}
       </p>
     </div>
@@ -52,20 +54,21 @@
       </tbody>
     </table>
   </div>
-  <form method="post" action="/admin/isolation" class="grid-2" style="margin-top:14px; gap:10px; max-width:760px;">
+  <form method="post" action="/admin/isolation" class="grid-4" style="margin-top:14px; gap:10px; align-items:end;">
     <label class="field-label"><span>类型</span>
       <select name="kind"><option value="ip">IP</option><option value="session">Session</option></select>
     </label>
     <label class="field-label"><span>值（IP 或 session_id）*</span><input name="value" required placeholder="203.0.113.7"></label>
     <label class="field-label"><span>原因</span><input name="reason" value="manual" placeholder="manual"></label>
-    <label class="field-label"><span>TTL（分钟）</span><input name="ttl_minutes" type="number" min="1" value="60"></label>
-    <div style="grid-column: 1 / -1;"><button type="submit">添加隔离</button></div>
+    <div style="display:flex;gap:10px;align-items:end;">
+      <label class="field-label" style="flex:1;"><span>TTL（分钟）</span><input name="ttl_minutes" type="number" min="1" value="60"></label>
+      <button type="submit" class="btn-sm" style="white-space:nowrap;">添加隔离</button>
+    </div>
   </form>
 </section>
 
-<div class="grid-2">
-  <section class="panel">
-    {{ section_header('通知配置', '维护 webhook、钉钉、飞书、email 等通知参数') }}
+<section class="panel" style="margin-bottom: 20px;">
+  {{ section_header('通知配置', '维护 webhook、钉钉、飞书、email 等通知参数') }}
 
     <details style="margin-bottom: 12px;">
       <summary class="field-help-toggle">
@@ -88,7 +91,7 @@
           <tr{% if edit_channel_id and edit_channel_id == item.id %} class="row-edit-selected"{% endif %}>
             <td><strong>{{ item.name }}</strong></td>
             <td><code>{{ item.channel_type }}</code></td>
-            <td>
+            <td class="cfg-cell">
               {% if item.channel_type == 'webhook' %}
                 <code>{{ item.config_json.get('url', '—') }}</code>
                 {% if item.config_json.get('headers') %}<br><small class="muted">headers: <code>{{ item.config_json.headers | tojson }}</code></small>{% endif %}
@@ -157,27 +160,27 @@
     </div>
   </section>
 
-  <section class="panel">
+  <section class="panel" style="margin-bottom: 20px;">
     {{ section_header('告警策略', '定义事件范围、阈值与通知配置映射') }}
-    <form method="post" action="/admin/alerts/policies" class="stack">
+    <form method="post" action="/admin/alerts/policies" class="grid-4" style="gap:10px;align-items:end;">
       <label class="field-label"><span>策略名称 *</span><input name="name" placeholder="如 高危凭据告警" required></label>
-      <div class="grid-3">
-        <label class="field-label"><span>事件范围</span>
-          <select name="event_scope" required>
-            <option value="threat">threat — 风险事件（≥ min_risk_score）</option>
-            <option value="credential">credential — 凭据诱饵尝试</option>
-            <option value="system">system — 系统级事件（C2/服务/登录）</option>
-          </select>
-        </label>
-        <label class="field-label"><span>最小风险分</span><input type="number" name="min_risk_score" value="45" required></label>
-        <label class="field-label"><span>通知配置（逗号分隔）</span><input name="channels_csv" placeholder="如 soc-webhook,slack" required></label>
+      <label class="field-label"><span>事件范围</span>
+        <select name="event_scope" required>
+          <option value="threat">threat — 风险事件</option>
+          <option value="credential">credential — 凭据诱饵</option>
+          <option value="system">system — 系统级事件</option>
+        </select>
+      </label>
+      <label class="field-label"><span>最小风险分</span><input type="number" name="min_risk_score" value="45" required></label>
+      <div style="display:flex;gap:10px;align-items:end;">
+        <label class="field-label" style="flex:1;"><span>通知配置（逗号分隔）</span><input name="channels_csv" placeholder="如 soc-webhook,slack" required></label>
+        <button type="submit" class="btn-sm" style="white-space:nowrap;">新增策略</button>
       </div>
       {% if channels %}
-      <div class="muted" style="font-size: 12px;">
+      <div class="muted" style="font-size: 12px; grid-column: 1 / -1;">
         可用 channel：{% for c in channels %}<code>{{ c.name }}</code>{% if not loop.last %}，{% endif %}{% endfor %}
       </div>
       {% endif %}
-      <button type="submit">新增告警策略</button>
     </form>
 
     <div class="table-wrap" style="margin-top:16px;">
@@ -240,7 +243,13 @@
       </table>
     </div>
   </section>
-</div>
+
+{% if test_result is defined %}
+<section class="panel" style="margin-bottom: 20px; border-left: 3px solid var(--info, #60a5fa);">
+  {{ section_header('测试结果', '点击「测试」后通道的同步发送返回') }}
+  <pre style="margin:8px 0 0; font-size: 12px; max-height: 300px; overflow:auto;">{{ test_result }}</pre>
+</section>
+{% endif %}
 
 {% call modal_dialog('channel-create-modal', '新增通知配置', '维护 webhook、钉钉、飞书、email 等通知渠道参数。') %}
 <form method="post" action="/admin/alerts/channels" class="stack" id="channel-create-form">
@@ -314,18 +323,15 @@
 </form>
 {% endcall %}
 
-{% if test_result is defined %}
-<div class="panel" style="margin-top: 0; border-left: 3px solid var(--info, #60a5fa);">
-  <div class="panel-header">
-    <div>
-      <h3 class="panel-title">测试结果</h3>
-      <pre style="margin-top: 8px; font-size: 12px; max-height: 300px; overflow: auto;">{{ test_result }}</pre>
-    </div>
-  </div>
-</div>
-{% endif %}
-
 <style>
+/* ---- alerts page layout polish ---- */
+/* channel config column: long webhook/SMTP strings wrap cleanly */
+.cfg-cell { max-width: 420px; }
+.cfg-cell code { word-break: break-all; font-size: 11px; }
+.cfg-cell small { display: inline-block; margin-top: 2px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1180px) { .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
 /* Help-block for the field-help toggle */
 .field-help-toggle {
   cursor: pointer;
@@ -344,27 +350,29 @@ details[open] .field-help-toggle::before { transform: rotate(90deg); }
   padding: 12px 16px;
   font-size: 13px;
   line-height: 1.6;
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid var(--border);
   border-radius: 12px;
   margin-top: 6px;
 }
+[data-theme="light"] .field-help-body { background: rgba(15, 23, 42, 0.04); }
 .field-help-body p { margin: 6px 0; }
 .field-help-body a { color: var(--theme-accent); }
 
 /* Highlight the row currently being edited (in-place editor) */
 .row-edit-selected { background: rgba(37, 99, 235, 0.05); }
 .edit-form-inline {
-  margin: 0;
+  margin: 14px;
   padding: 18px;
   background: rgba(37, 99, 235, 0.04);
   border-radius: 14px;
-  margin: 14px;
 }
+[data-theme="light"] .edit-form-inline { background: rgba(15, 23, 42, 0.03); }
 .edit-form-title {
   margin: 0;
   font-size: 14px;
   font-weight: 700;
-  color: #dbeafe;
+  color: var(--foreground);
 }
 .checkbox-row {
   display: inline-flex;
