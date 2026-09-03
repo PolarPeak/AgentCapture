@@ -8,7 +8,7 @@ from app.core.db import SessionLocal
 from app.schemas.events import AgentInteractionPayload, ReconPayload
 from app.services.agent_injection import generate_agent_injection
 from app.services.events import create_event, extract_client_ip, filtered_headers
-from app.services.jsonp_recon import generate_jsonp_response, process_fingerprint
+from app.services.jsonp_recon import generate_jsonp_response, process_fingerprint, sanitize_webrtc_ips
 from app.services.jsonp_templates import get_jsonp_template, render_jsonp_template_payload
 from app.services.payload_generator import PAYLOAD_GENERATORS
 from app.services.prompt_injection_templates import list_active_prompt_templates
@@ -20,12 +20,22 @@ settings = get_settings()
 
 @router.post("/recon/fingerprint", status_code=204)
 def collect_fingerprint(payload: ReconPayload, request: Request) -> Response:
+    # WebRTC candidates may carry mDNS hostnames (uuid.local) instead of
+    # IPs — sanitize before detection, storage and display.
+    clean_ips, dropped_ips = sanitize_webrtc_ips(payload.webrtc_ips)
+    payload.webrtc_ips = clean_ips
     fp = process_fingerprint(payload.model_dump())
     decision = classify_recon_fingerprint(
         webdriver=fp.webdriver,
         headless_hint=fp.headless_hint,
         webrtc_ips=fp.webrtc_ips if fp.webrtc_ips else None,
     )
+    signals = list(decision.signals)
+    if dropped_ips:
+        signals.append("webrtc_mdns_obfuscated")
+    event_payload = payload.model_dump()
+    if dropped_ips:
+        event_payload["webrtc_dropped"] = dropped_ips
 
     with SessionLocal() as db:
         create_event(
@@ -39,8 +49,8 @@ def collect_fingerprint(payload: ReconPayload, request: Request) -> Response:
             event_type="recon_fingerprint",
             user_agent=request.headers.get("user-agent", ""),
             headers_json=filtered_headers(request),
-            payload_json=payload.model_dump(),
-            signals_json=decision.signals,
+            payload_json=event_payload,
+            signals_json=signals,
             risk_score=decision.score,
             decision=decision.decision,
         )
@@ -50,7 +60,7 @@ def collect_fingerprint(payload: ReconPayload, request: Request) -> Response:
             source_ip=extract_client_ip(request),
             decision=decision.decision,
             risk_score=decision.score,
-            signals=list(decision.signals),
+            signals=list(signals),
             path=request.url.path,
             method=request.method,
             summary=f"recon fingerprint from {extract_client_ip(request)}: {decision.decision} (score={decision.score})",

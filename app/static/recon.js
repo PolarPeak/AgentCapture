@@ -112,6 +112,14 @@
     }
   }
 
+  function isValidIP(value) {
+    if (!value) return false;
+    // IPv4
+    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(value)) return true;
+    // IPv6 (hex groups + colons, optional zone id like %en0)
+    return value.indexOf(":") !== -1 && /^[0-9a-fA-F:.]+(%[0-9a-zA-Z]+)?$/.test(value);
+  }
+
   function collectWebRTCIPs(callback) {
     const ips = [];
     let done = false;
@@ -128,13 +136,18 @@
         pc.close();
         return;
       }
+      // Modern Chrome/Safari obfuscate host candidates behind mDNS
+      // hostnames (uuid.local); only keep real IPv4/IPv6 addresses.
       const addr = e.candidate.address || "";
       const candidate = e.candidate.candidate || "";
-      const ipMatch = candidate.match(/([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/);
-      if (addr && ips.indexOf(addr) === -1) {
-        ips.push(addr);
-      } else if (ipMatch && ips.indexOf(ipMatch[1]) === -1) {
-        ips.push(ipMatch[1]);
+      if (isValidIP(addr)) {
+        if (ips.indexOf(addr) === -1) ips.push(addr);
+        return;
+      }
+      const tokens = candidate.split(/\s+/);
+      for (let i = 0; i < tokens.length; i++) {
+        const tok = tokens[i];
+        if (isValidIP(tok) && ips.indexOf(tok) === -1) ips.push(tok);
       }
     };
     pc.createOffer().then((offer) => pc.setLocalDescription(offer)).catch(() => {});

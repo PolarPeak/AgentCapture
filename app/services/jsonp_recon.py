@@ -39,6 +39,32 @@ def compute_fingerprint_hash(data: dict) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()[:32]
 
 
+def sanitize_webrtc_ips(values: list[str] | None) -> tuple[list[str], list[str]]:
+    """Keep only real IPv4/IPv6 addresses from collected WebRTC candidates.
+
+    Modern Chrome/Safari replace host candidates with mDNS hostnames
+    (``<uuid>.local``). Those are browser-noise, not IPs — the sanitized
+    list is what detection/display should consume, while dropped entries
+    (capped) double as an "mDNS obfuscation" environment signal.
+    """
+    import ipaddress
+
+    clean: list[str] = []
+    dropped: list[str] = []
+    for value in values or []:
+        raw = str(value or "").strip()
+        if not raw:
+            continue
+        try:
+            ipaddress.ip_address(raw.split("%", 1)[0])
+        except ValueError:
+            dropped.append(raw[:64])
+            continue
+        if raw not in clean:
+            clean.append(raw)
+    return clean, dropped[:16]
+
+
 def process_fingerprint(payload: dict) -> FingerprintResult:
     result = FingerprintResult(
         webrtc_ips=payload.get("webrtc_ips") or [],

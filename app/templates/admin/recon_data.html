@@ -15,7 +15,7 @@
           <td><a href="/admin/attack-sources/{{ item.source_ip }}"><code>{{ item.source_ip }}</code></a></td>
           <td><a href="/admin/sessions/{{ item.session_id }}"><code title="{{ item.session_id }}">{{ item.session_id[:12] }}...</code></a></td>
           <td><code>{{ item.created_at.strftime('%m-%d %H:%M:%S') }}</code></td>
-          <td>{% for ip in payload.get('webrtc_ips', []) %}<span class="badge badge-danger">{{ ip }}</span>{% endfor %}{% if not payload.get('webrtc_ips') %}<span class="text-muted">-</span>{% endif %}</td>
+          <td>{% for ip in payload.get('webrtc_ips', []) %}<span class="badge badge-danger">{{ ip }}</span>{% endfor %}{% if payload.get('webrtc_dropped') %}<span class="badge badge-warning" style="cursor:default" title="浏览器以 mDNS 主机名混淆本地候选（如 {{ payload.get('webrtc_dropped')[0] }}），非真实 IP，已过滤">mDNS 混淆 × {{ payload.get('webrtc_dropped')|length }}</span>{% endif %}{% if not payload.get('webrtc_ips') and not payload.get('webrtc_dropped') %}<span class="text-muted">-</span>{% endif %}</td>
           <td><code title="{{ payload.get('canvas_hash') or '' }}">{{ (payload.get('canvas_hash') or '')[:16] }}{% if (payload.get('canvas_hash') or '')|length > 16 %}...{% endif %}</code></td>
           <td>{% if payload.get('webdriver') %}<span class="badge badge-danger">WebDriver</span>{% endif %}{% if payload.get('headless_hint') %}<span class="badge badge-warning">Headless</span>{% endif %}{% if not payload.get('webdriver') and not payload.get('headless_hint') %}<span class="badge badge-success">正常</span>{% endif %}</td>
           <td><small>插件: {{ payload.get('plugins', [])|length }} / 字体: {{ payload.get('fonts', [])|length }}</small></td>
