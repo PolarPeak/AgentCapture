@@ -536,6 +536,48 @@ def _queue_sensitive_action(
     return _redirect(target or return_to)
 
 
+def _bulk_delete_entities(
+    db: Session,
+    actor: User,
+    model,
+    ids: list[int],
+    *,
+    module: str,
+    target_type: str,
+    ref_attr: str,
+    skip=None,
+) -> int:
+    """Shared batch-delete loop for deployment-operations config entities.
+
+    Mirrors the per-entity single-delete semantics (same audit trail,
+    same builtin guards) and returns how many rows were removed.
+    """
+    deleted = 0
+    for entity_id in ids:
+        try:
+            entity_id = int(entity_id)
+        except (TypeError, ValueError):
+            continue
+        item = db.get(model, entity_id)
+        if not item:
+            continue
+        if skip is not None and skip(item):
+            continue
+        ref = str(getattr(item, ref_attr, "") or item.id)
+        db.delete(item)
+        db.commit()
+        deleted += 1
+        log_execution(
+            db,
+            actor_username=actor.username,
+            action="bulk_delete",
+            module=module,
+            target_type=target_type,
+            target_ref=ref,
+        )
+    return deleted
+
+
 def _execute_sensitive_action(db: Session, actor: User, pending: dict) -> str:
     action = pending["action"]
     params = pending.get("params", {})
@@ -6562,6 +6604,93 @@ def admin_c2_delete_agent(agent_id: str, request: Request, db: Session = Depends
         title=f"删除 C2 Agent：{agent_id}",
         description="删除后该 Agent 及其全部任务记录将被一并移除。",
     )
+
+
+def _parse_bulk_ids(raw: str) -> list[int]:
+    return [int(x) for x in (raw or "").split(",") if x.strip().isdigit()]
+
+
+@router.post("/admin/nodes/bulk-delete")
+def admin_nodes_bulk_delete(request: Request, ids: str = Form(""), db: Session = Depends(get_db)):
+    user = _require_admin(request, db)
+    with SessionLocal() as s:
+        _bulk_delete_entities(
+            s, user, Node, _parse_bulk_ids(ids),
+            module="nodes", target_type="node", ref_attr="name",
+            skip=lambda n: n.is_builtin,
+        )
+    return _redirect("/admin/nodes")
+
+
+@router.post("/admin/services/bulk-delete")
+def admin_services_bulk_delete(request: Request, ids: str = Form(""), db: Session = Depends(get_db)):
+    user = _require_admin(request, db)
+    with SessionLocal() as s:
+        _bulk_delete_entities(
+            s, user, ServiceCatalog, _parse_bulk_ids(ids),
+            module="services", target_type="service", ref_attr="service_key",
+        )
+    return _redirect("/admin/services")
+
+
+@router.post("/admin/templates/bulk-delete")
+def admin_templates_bulk_delete(request: Request, ids: str = Form(""), db: Session = Depends(get_db)):
+    user = _require_admin(request, db)
+    with SessionLocal() as s:
+        _bulk_delete_entities(
+            s, user, ServiceTemplate, _parse_bulk_ids(ids),
+            module="templates", target_type="template", ref_attr="name",
+        )
+    return _redirect("/admin/templates")
+
+
+@router.post("/admin/decoys/templates/bulk-delete")
+def admin_decoy_templates_bulk_delete(
+    request: Request,
+    ids: str = Form(""),
+    return_to: str = Form("/admin/decoy-management"),
+    db: Session = Depends(get_db),
+):
+    user = _require_admin(request, db)
+    with SessionLocal() as s:
+        _bulk_delete_entities(
+            s, user, DecoyTemplate, _parse_bulk_ids(ids),
+            module="decoys", target_type="decoy-template", ref_attr="name",
+        )
+    return _redirect(return_to or "/admin/decoy-management")
+
+
+@router.post("/admin/prompt-injection/bulk-delete")
+def admin_prompt_injection_bulk_delete(request: Request, ids: str = Form(""), db: Session = Depends(get_db)):
+    user = _require_admin(request, db)
+    with SessionLocal() as s:
+        _bulk_delete_entities(
+            s, user, PromptInjectionTemplate, _parse_bulk_ids(ids),
+            module="prompt-injection", target_type="prompt-template", ref_attr="name",
+        )
+    return _redirect("/admin/prompt-injection")
+
+
+@router.post("/admin/jsonp-templates/bulk-delete")
+def admin_jsonp_templates_bulk_delete(request: Request, ids: str = Form(""), db: Session = Depends(get_db)):
+    user = _require_admin(request, db)
+    with SessionLocal() as s:
+        _bulk_delete_entities(
+            s, user, JsonpTemplate, _parse_bulk_ids(ids),
+            module="jsonp-templates", target_type="jsonp-template", ref_attr="name",
+        )
+    return _redirect("/admin/jsonp-templates")
+
+
+@router.post("/admin/internet-systems/bulk-delete")
+def admin_internet_systems_bulk_delete(request: Request, ids: str = Form(""), db: Session = Depends(get_db)):
+    user = _require_admin(request, db)
+    with SessionLocal() as s:
+        _bulk_delete_entities(
+            s, user, InternetSystem, _parse_bulk_ids(ids),
+            module="internet-systems", target_type="internet-system", ref_attr="domain",
+        )
+    return _redirect("/admin/internet-systems")
 
 
 @router.post("/admin/c2/agents/bulk-delete")

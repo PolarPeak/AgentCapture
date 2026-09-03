@@ -250,13 +250,22 @@
 
   <section class="panel">
     {{ section_header('蜜饵模板', '三类模板统一管理，可一键生成唯一投放记录') }}
+    <div style="margin-bottom:10px;display:flex;gap:10px;align-items:center">
+      <form method="post" action="/admin/decoys/templates/bulk-delete" data-confirm="确认删除选中的 {n} 个蜜饵模板？不可撤销。" class="bulk-del-form">
+        <input type="hidden" name="return_to" value="/admin/decoy-management">
+        <input type="hidden" name="ids" value="">
+        <button type="button" class="danger btn-sm bulk-del-btn">批量删除</button>
+      </form>
+      <span class="muted" style="font-size:11px">勾选模板后批量移除</span>
+    </div>
     <div class="table-wrap compact"><table>
         <colgroup>
-          <col style="width: 7%"><col style="width: 30%"><col style="width: 22%"><col style="width: 18%"><col style="width: 15%"><col style="width: 8%">
+          <col style="width: 4%"><col style="width: 7%"><col style="width: 28%"><col style="width: 21%"><col style="width: 17%"><col style="width: 15%"><col style="width: 8%">
         </colgroup>
-        <thead><tr><th>类型</th><th class="cell-prose">模板</th><th>投放 / 目标</th><th>绑定链路</th><th>生成部署</th><th>操作</th></tr></thead><tbody>
+        <thead><tr><th style="width:34px"><input type="checkbox" class="bulk-select-all" style="cursor:pointer"></th><th>类型</th><th class="cell-prose">模板</th><th>投放 / 目标</th><th>绑定链路</th><th>生成部署</th><th>操作</th></tr></thead><tbody>
       {% for item in templates_list %}
       <tr>
+        <td><input type="checkbox" class="bulk-check" value="{{ item.id }}" style="cursor:pointer"></td>
         <td><span class="decoy-chip">{{ item.type_label }}</span></td>
         <td class="cell-prose"><strong>{{ item.name }}</strong><div class="muted">{{ item.file_name }}</div>{% if item.meta.artifact_path %}<div class="muted">上传文件：{{ item.meta.uploaded_file_name }} · {{ item.meta.uploaded_size }} bytes</div>{% endif %}<div class="decoy-desc">{{ item.description }}</div></td>
         <td>{% if item.decoy_type == 'api_route' %}<code class="decoy-path">{{ item.route_path }}</code><div class="muted">{{ item.exposure_channel }}</div>{% else %}<span>{{ item.target_service_key }}</span><div class="muted">{{ item.username_dictionary }}</div>{% endif %}</td>
@@ -264,8 +273,25 @@
         <td><form method="post" action="/admin/decoys/templates/{{ item.id }}/deploy" class="decoy-deploy-form"><input type="hidden" name="return_to" value="/admin/decoy-management"><select name="node_id"><option value="">无节点</option>{% for node in nodes %}<option value="{{ node.id }}">{{ node.name }}</option>{% endfor %}</select><input name="deployed_host" placeholder="业务主机 / 系统"><button type="submit">生成</button></form></td>
         <td><div class="actions-inline"><button type="button" class="secondary" onclick="openDecoyModal('decoy-edit-{{ item.id }}')">编辑</button><form method="post" action="/admin/decoys/templates/{{ item.id }}/delete"><input type="hidden" name="return_to" value="/admin/decoy-management"><button class="secondary" type="submit">删除</button></form></div></td>
       </tr>
-      {% else %}{{ empty_state('暂无蜜饵模板', '新增 API 路由、文件或凭证蜜饵后可生成部署记录。', 6, 'DC') }}{% endfor %}
+      {% else %}{{ empty_state('暂无蜜饵模板', '新增 API 路由、文件或凭证蜜饵后可生成部署记录。', 7, 'DC') }}{% endfor %}
     </tbody></table></div>
+    <script>
+    (function () {
+      var bulkAll = document.querySelector('.bulk-select-all');
+      if (bulkAll) bulkAll.addEventListener('change', function () {
+        document.querySelectorAll('.bulk-check').forEach(function (c) { c.checked = bulkAll.checked; });
+      });
+      var bulkBtn = document.querySelector('.bulk-del-btn');
+      if (bulkBtn) bulkBtn.addEventListener('click', function () {
+        var checked = Array.prototype.slice.call(document.querySelectorAll('.bulk-check:checked'));
+        if (!checked.length) { alert('请先勾选要删除的蜜饵模板'); return; }
+        var form = bulkBtn.closest('form');
+        if (!confirm(form.dataset.confirm.replace('{n}', checked.length))) return;
+        form.querySelector('input[name="ids"]').value = checked.map(function (c) { return c.value; }).join(',');
+        form.submit();
+      });
+    })();
+    </script>
   </section>
 
   <section class="panel">

@@ -150,11 +150,16 @@
   {{ section_header('提示词注入模板表格', '通过表格选择模板，点击“编辑”后在弹窗中修改模板内容。') }}
   <div class="prompt-table-toolbar">
     <div class="prompt-help-inline">正文内容不会在列表中展开，避免页面信息过密；需要修改时进入对应模板弹窗。</div>
+    <form method="post" action="/admin/prompt-injection/bulk-delete" data-confirm="确认删除选中的 {n} 个模板？不可撤销。" class="bulk-del-form">
+      <input type="hidden" name="ids" value="">
+      <button type="button" class="danger btn-sm bulk-del-btn">批量删除</button>
+    </form>
   </div>
   <div class="table-wrap">
     <table>
       <thead>
         <tr>
+          <th style="width:36px"><input type="checkbox" class="bulk-select-all" style="cursor:pointer"></th>
           <th>模板</th>
           <th>范围</th>
           <th>触发条件</th>
@@ -168,6 +173,7 @@
       <tbody>
         {% for item in items %}
         <tr>
+          <td><input type="checkbox" class="bulk-check" value="{{ item.id }}" style="cursor:pointer"></td>
           <td class="prompt-template-name"><strong>{{ item.name }}</strong><span>{{ item.template_key }}</span></td>
           <td>{{ badge({'html_response': 'HTML 页面', 'api_response': 'API 响应', 'all': '全部范围'}.get(item.target_scope, item.target_scope), 'info') }}</td>
           <td>{{ badge({'always': '始终启用', 'agent_only': '命中 Agent 时', 'high_risk': '高风险会话', 'agent_or_high_risk': 'Agent 或高风险'}.get(item.trigger_type, item.trigger_type), 'warning') }}</td>
@@ -188,7 +194,7 @@
           </td>
         </tr>
         {% else %}
-        {{ empty_state('暂无提示词注入模板', '点击新增模板后会显示在这里。', 8, 'AI') }}
+        {{ empty_state('暂无提示词注入模板', '点击新增模板后会显示在这里。', 9, 'AI') }}
         {% endfor %}
       </tbody>
     </table>
@@ -315,6 +321,20 @@
     document.querySelectorAll('.prompt-modal-backdrop:not([hidden])').forEach(function(modal) {
       closePromptModal(modal.id);
     });
+  });
+  // batch delete
+  var bulkAll = document.querySelector('.bulk-select-all');
+  if (bulkAll) bulkAll.addEventListener('change', function () {
+    document.querySelectorAll('.bulk-check').forEach(function (c) { c.checked = bulkAll.checked; });
+  });
+  var bulkBtn = document.querySelector('.bulk-del-btn');
+  if (bulkBtn) bulkBtn.addEventListener('click', function () {
+    var checked = Array.prototype.slice.call(document.querySelectorAll('.bulk-check:checked'));
+    if (!checked.length) { alert('请先勾选要删除的模板'); return; }
+    var form = bulkBtn.closest('form');
+    if (!confirm(form.dataset.confirm.replace('{n}', checked.length))) return;
+    form.querySelector('input[name="ids"]').value = checked.map(function (c) { return c.value; }).join(',');
+    form.submit();
   });
 </script>
 {% endblock %}

@@ -169,11 +169,16 @@
   {{ section_header('Jsonp 请求方法表格', '列表只展示关键字段；响应 JSON 模板不在页面直接展开，点击“编辑”后在弹窗中维护。') }}
   <div class="jsonp-table-toolbar">
     <div class="jsonp-help-inline">用于管理反制溯源中的 Jsonp 请求方法、回调参数和字段采集策略。</div>
+    <form method="post" action="/admin/jsonp-templates/bulk-delete" data-confirm="确认删除选中的 {n} 个模版？不可撤销。" class="bulk-del-form">
+      <input type="hidden" name="ids" value="">
+      <button type="button" class="danger btn-sm bulk-del-btn">批量删除</button>
+    </form>
   </div>
   <div class="table-wrap">
     <table>
       <thead>
         <tr>
+          <th style="width:36px"><input type="checkbox" class="bulk-select-all" style="cursor:pointer"></th>
           <th>模版</th>
           <th>请求入口</th>
           <th>回调参数</th>
@@ -186,6 +191,7 @@
       <tbody>
         {% for item in items %}
         <tr>
+          <td><input type="checkbox" class="bulk-check" value="{{ item.id }}" style="cursor:pointer"></td>
           <td class="jsonp-template-name"><strong>{{ item.name }}</strong><span>{{ item.method_key }}</span></td>
           <td class="jsonp-entry-cell">
             <span class="jsonp-entry-line">{{ badge(item.request_method, 'info') }} <code>{{ item.endpoint_path }}</code></span>
@@ -215,7 +221,7 @@
           </td>
         </tr>
         {% else %}
-        {{ empty_state('暂无 Jsonp 请求方法', '点击新增 Jsonp 模版后会显示在这里。', 7, 'RC') }}
+        {{ empty_state('暂无 Jsonp 请求方法', '点击新增 Jsonp 模版后会显示在这里。', 8, 'RC') }}
         {% endfor %}
       </tbody>
     </table>
@@ -328,6 +334,20 @@
     document.querySelectorAll('.jsonp-modal-backdrop:not([hidden])').forEach(function(modal) {
       closeJsonpModal(modal.id);
     });
+  });
+  // batch delete
+  var bulkAll = document.querySelector('.bulk-select-all');
+  if (bulkAll) bulkAll.addEventListener('change', function () {
+    document.querySelectorAll('.bulk-check').forEach(function (c) { c.checked = bulkAll.checked; });
+  });
+  var bulkBtn = document.querySelector('.bulk-del-btn');
+  if (bulkBtn) bulkBtn.addEventListener('click', function () {
+    var checked = Array.prototype.slice.call(document.querySelectorAll('.bulk-check:checked'));
+    if (!checked.length) { alert('请先勾选要删除的模版'); return; }
+    var form = bulkBtn.closest('form');
+    if (!confirm(form.dataset.confirm.replace('{n}', checked.length))) return;
+    form.querySelector('input[name="ids"]').value = checked.map(function (c) { return c.value; }).join(',');
+    form.submit();
   });
 </script>
 {% endblock %}

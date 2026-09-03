@@ -116,10 +116,18 @@
     <div class="panel page-banner" style="margin-bottom:12px">
       <p class="panel-subtitle" style="margin:0">⚠ 当前版本中此清单是<strong>接入规划台账</strong>：登记的域名/上游/策略用于规划与评审，不会自动产生反向代理或注入行为。流量要进入采集管道，需将系统流量实际接入本平台（如 nginx 反代到主应用端口）。</p>
     </div>
+    <div style="margin-bottom:10px;display:flex;gap:10px;align-items:center">
+      <form method="post" action="/admin/internet-systems/bulk-delete" data-confirm="确认删除选中的 {n} 个系统接入记录？不可撤销。" class="bulk-del-form">
+        <input type="hidden" name="ids" value="">
+        <button type="button" class="danger btn-sm bulk-del-btn">批量删除</button>
+      </form>
+      <span class="muted" style="font-size:11px">勾选系统后批量移除接入记录</span>
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
+            <th style="width:36px"><input type="checkbox" class="bulk-select-all" style="cursor:pointer"></th>
             <th>系统</th>
             <th>接入链路</th>
             <th>策略</th>
@@ -131,6 +139,7 @@
         <tbody>
           {% for item in items %}
           <tr>
+            <td><input type="checkbox" class="bulk-check" value="{{ item.id }}" style="cursor:pointer"></td>
             <td class="internet-system-cell">
               <strong>{{ item.name }}</strong>
               <code>{{ item.domain }}</code>
@@ -173,7 +182,7 @@
             </td>
           </tr>
           {% else %}
-          {{ empty_state('暂无互联网系统接入', '点击新增后可把业务域名、上游地址和无损接入策略纳入管理。', 6, 'API') }}
+          {{ empty_state('暂无互联网系统接入', '点击新增后可把业务域名、上游地址和无损接入策略纳入管理。', 7, 'API') }}
           {% endfor %}
         </tbody>
       </table>
@@ -323,6 +332,20 @@ curl -sI https://your.site/portal/api/content | grep -i x-agent-capture</pre>
   document.addEventListener('keydown', function(event) {
     if (event.key !== 'Escape') return;
     document.querySelectorAll('.internet-modal-backdrop:not([hidden])').forEach(function(modal) { closeInternetModal(modal.id); });
+  });
+  // batch delete
+  var bulkAll = document.querySelector('.bulk-select-all');
+  if (bulkAll) bulkAll.addEventListener('change', function () {
+    document.querySelectorAll('.bulk-check').forEach(function (c) { c.checked = bulkAll.checked; });
+  });
+  var bulkBtn = document.querySelector('.bulk-del-btn');
+  if (bulkBtn) bulkBtn.addEventListener('click', function () {
+    var checked = Array.prototype.slice.call(document.querySelectorAll('.bulk-check:checked'));
+    if (!checked.length) { alert('请先勾选要删除的系统'); return; }
+    var form = bulkBtn.closest('form');
+    if (!confirm(form.dataset.confirm.replace('{n}', checked.length))) return;
+    form.querySelector('input[name="ids"]').value = checked.map(function (c) { return c.value; }).join(',');
+    form.submit();
   });
 </script>
 {% endblock %}

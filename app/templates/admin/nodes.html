@@ -128,7 +128,16 @@ POST /api/node/tasks/ack</pre><div class="muted">建议节点定时上报状态�
   {% set online_count = nodes|selectattr('node.status', 'equalto', 'online')|list|length %}
   <div class="nd-list-head">
     <div class="nd-list-title">节点清单</div>
-    <div class="nd-list-count">{{ nodes|length }} 个节点 · {{ online_count }} 在线</div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <label style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted-foreground);cursor:pointer">
+        <input type="checkbox" class="bulk-select-all" style="cursor:pointer">全选
+      </label>
+      <form method="post" action="/admin/nodes/bulk-delete" data-confirm="确认删除选中的 {n} 个节点？内置节点不受影响，不可撤销。" class="bulk-del-form">
+        <input type="hidden" name="ids" value="">
+        <button type="button" class="danger btn-sm bulk-del-btn">批量删除</button>
+      </form>
+      <div class="nd-list-count">{{ nodes|length }} 个节点 · {{ online_count }} 在线</div>
+    </div>
   </div>
   <div class="nd-cols">
     <span>NO</span><span>节点</span><span>监听 / 回连</span><span>最近心跳</span><span>待办任务</span><span>状态</span>
@@ -137,7 +146,7 @@ POST /api/node/tasks/ack</pre><div class="muted">建议节点定时上报状态�
     {% set node = item.node %}
     {% set segs = [item.pending_count, 10]|min %}
     <div class="nd-row is-{{ node.status }}">
-      <span class="nd-idx">{{ '%02d' % loop.index }}</span>
+      <span class="nd-idx"><input type="checkbox" class="bulk-check" value="{{ node.id }}" style="cursor:pointer" {% if node.is_builtin %}disabled title="内置节点不可删除"{% endif %}> {{ '%02d' % loop.index }}</span>
       <div class="nd-name">
         <span class="nd-os">{{ icon(name='server', class_name='ui-icon ui-icon-sm') }}</span>
         <span class="nd-name-text">
@@ -194,4 +203,21 @@ POST /api/node/tasks/ack</pre><div class="muted">建议节点定时上报状态�
   </div>
 </form>
 {% endcall %}
+<script>
+(function () {
+  var bulkAll = document.querySelector('.bulk-select-all');
+  if (bulkAll) bulkAll.addEventListener('change', function () {
+    document.querySelectorAll('.bulk-check').forEach(function (c) { if (!c.disabled) c.checked = bulkAll.checked; });
+  });
+  var bulkBtn = document.querySelector('.bulk-del-btn');
+  if (bulkBtn) bulkBtn.addEventListener('click', function () {
+    var checked = Array.prototype.slice.call(document.querySelectorAll('.bulk-check:checked'));
+    if (!checked.length) { alert('请先勾选要删除的节点'); return; }
+    var form = bulkBtn.closest('form');
+    if (!confirm(form.dataset.confirm.replace('{n}', checked.length))) return;
+    form.querySelector('input[name="ids"]').value = checked.map(function (c) { return c.value; }).join(',');
+    form.submit();
+  });
+})();
+</script>
 {% endblock %}
