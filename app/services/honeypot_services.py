@@ -26,6 +26,7 @@ import asyncio
 import json
 import logging
 import os
+import socket
 import struct
 import threading
 from datetime import datetime, timezone
@@ -81,6 +82,10 @@ def start_service(service_key: str, port: int, bind: str = "0.0.0.0") -> bool:
                 )
                 server_ref.append(server)
                 await server.serve_forever()
+            except asyncio.CancelledError:
+                # raised when stop_service() closes the server or the loop
+                # shuts down — this is the normal stop path, not an error
+                pass
             except OSError as exc:
                 error_ref.append(exc)
 
@@ -128,6 +133,21 @@ def stop_service(service_key: str) -> bool:
 
 def is_running(service_key: str) -> bool:
     return service_key in _running
+
+
+def port_listening(port: int, host: str = "127.0.0.1", timeout: float = 0.3) -> bool:
+    """Probe whether anything is actually listening on the port.
+
+    The in-memory ``_running`` map is per-process: after a hot reload (or a
+    duplicated worker) a stale process can hold the port while the current
+    process believes the service is stopped — or vice versa. This probe is
+    the ground truth the services page displays alongside the DB status.
+    """
+    try:
+        with socket.create_connection((host, int(port)), timeout=timeout):
+            return True
+    except OSError:
+        return False
 
 
 def running_services() -> dict[str, int]:

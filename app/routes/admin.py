@@ -3668,6 +3668,7 @@ def queue_runtime_task(
 def admin_services(request: Request, db: Session = Depends(get_db)):
     user = _require_user(request, db)
     from app.services.honeypot_services import (
+        port_listening,
         running_services,
         supported_services,
         sync_services_status,
@@ -3680,6 +3681,9 @@ def admin_services(request: Request, db: Session = Depends(get_db)):
         select(ServiceCatalog).order_by(ServiceCatalog.category, ServiceCatalog.name)
     ).all()
     running = running_services()
+    # Ground truth: the in-memory map is per-process — a stale worker from a
+    # hot reload can hold the port while this process believes it stopped.
+    listening = {item.service_key: port_listening(item.default_port) for item in items}
     return _render(
         request,
         "admin/services.html",
@@ -3688,6 +3692,7 @@ def admin_services(request: Request, db: Session = Depends(get_db)):
             "current_user": user,
             "items": items,
             "running": running,
+            "listening": listening,
             "supported": supported_services(),
             "error": request.query_params.get("error", ""),
         },

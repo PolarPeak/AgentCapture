@@ -147,6 +147,14 @@
                 {% else %}
                   {{ badge('已停止', 'default') }}
                 {% endif %}
+                {% if listening is defined %}
+                {% set port_up = listening.get(item.service_key, false) %}
+                {% if item.service_key in running and not port_up %}
+                  {{ badge('端口未监听', 'danger') }}
+                {% elif item.service_key not in running and port_up %}
+                  {{ badge('端口被其他进程占用', 'warning') }}
+                {% endif %}
+                {% endif %}
               </td>
               <td>
                 <div class="actions-inline">
