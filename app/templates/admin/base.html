@@ -572,7 +572,17 @@
             const handle = document.createElement("span");
             handle.className = "th-resizer";
             handle.setAttribute("aria-hidden", "true");
-            handle.addEventListener("mousedown", (ev) => {
+            // The handle only *looks* like a separate widget; hit-testing on
+            // sticky positioned TH children was unreliable (a neighbouring
+            // sticky TH could paint over the strip and swallow the click), so
+            // the mousedown listener lives on the TH itself and triggers when
+            // the press lands in the 16px strip at the right edge.
+            function startResize(ev) {
+              const rect = th.getBoundingClientRect();
+              // Right-edge 40px strip resizes; the th-level handler is needed
+              // because hit-testing the tiny resizer span reliably landed on
+              // the neighbouring sticky column under the 0.8 UI scale.
+              if (ev.clientX < rect.right - 40) return;
               ev.preventDefault();
               ev.stopPropagation();
               // Freeze current widths before going fixed-layout so columns
@@ -599,7 +609,8 @@
               }
               document.addEventListener("mousemove", onMove);
               document.addEventListener("mouseup", onUp);
-            });
+            }
+            th.addEventListener("mousedown", startResize);
             th.appendChild(handle);
           });
         });
