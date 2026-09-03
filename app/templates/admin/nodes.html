@@ -118,13 +118,6 @@
 </style>
 
 <section class="panel">
-  {{ section_header('心跳 / 任务接口', '当前为接口雏形，适合后续接入真实节点 Agent') }}
-  <div class="stack"><pre>POST /api/node/heartbeat
-POST /api/node/tasks/pull
-POST /api/node/tasks/ack</pre><div class="muted">建议节点定时上报状态，再主动拉取待执行任务，如同步模板、重启服务、轮换蜜饵、采集快照。</div></div>
-</section>
-
-<section class="panel">
   {% set online_count = nodes|selectattr('node.status', 'equalto', 'online')|list|length %}
   <div class="nd-list-head">
     <div class="nd-list-title">节点清单</div>
