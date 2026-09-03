@@ -546,11 +546,14 @@ def _bulk_delete_entities(
     target_type: str,
     ref_attr: str,
     skip=None,
+    pre_delete=None,
 ) -> int:
     """Shared batch-delete loop for deployment-operations config entities.
 
     Mirrors the per-entity single-delete semantics (same audit trail,
     same builtin guards) and returns how many rows were removed.
+    ``pre_delete(db, item)`` runs before each delete for dependent-row
+    cleanup (e.g. decoy deployments holding an FK to the template).
     """
     deleted = 0
     for entity_id in ids:
@@ -564,6 +567,8 @@ def _bulk_delete_entities(
         if skip is not None and skip(item):
             continue
         ref = str(getattr(item, ref_attr, "") or item.id)
+        if pre_delete is not None:
+            pre_delete(db, item)
         db.delete(item)
         db.commit()
         deleted += 1
@@ -625,6 +630,12 @@ def _execute_sensitive_action(db: Session, actor: User, pending: dict) -> str:
     elif action == "delete_decoy_template":
         item = db.get(DecoyTemplate, params["template_id"])
         if item:
+            # deployments hold an FK to the template; drop them first or the
+            # delete fails with FOREIGN KEY constraint on SQLite/PG
+            for dep in db.scalars(
+                select(DecoyDeployment).where(DecoyDeployment.template_id == item.id)
+            ).all():
+                db.delete(dep)
             db.delete(item)
             db.commit()
             log_execution(
@@ -6652,10 +6663,23 @@ def admin_decoy_templates_bulk_delete(
     db: Session = Depends(get_db),
 ):
     user = _require_admin(request, db)
+
+    def _drop_deployments(s: Session, item: DecoyTemplate) -> None:
+        for dep in s.scalars(
+            select(DecoyDeployment).where(DecoyDeployment.template_id == item.id)
+        ).all():
+            s.delete(dep)
+
     with SessionLocal() as s:
         _bulk_delete_entities(
-            s, user, DecoyTemplate, _parse_bulk_ids(ids),
-            module="decoys", target_type="decoy-template", ref_attr="name",
+            s,
+            user,
+            DecoyTemplate,
+            _parse_bulk_ids(ids),
+            module="decoys",
+            target_type="decoy-template",
+            ref_attr="name",
+            pre_delete=_drop_deployments,
         )
     return _redirect(return_to or "/admin/decoy-management")
 
