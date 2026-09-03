@@ -3278,12 +3278,12 @@ def admin_attacks_clear(
 
     deleted_creds = 0
     deleted_logins = 0
-    if cred_conditions:
-        result = db.execute(delete(CredentialObservation).where(*cred_conditions))
-        deleted_creds = int(result.rowcount or 0)
-    if login_conditions:
-        result = db.execute(delete(LoginLog).where(*login_conditions))
-        deleted_logins = int(result.rowcount or 0)
+    # NOTE: an empty condition list means "no restriction" (full wipe), not
+    # "skip this table" — scope=all must still purge these surfaces.
+    result = db.execute(delete(CredentialObservation).where(*cred_conditions))
+    deleted_creds = int(result.rowcount or 0)
+    result = db.execute(delete(LoginLog).where(*login_conditions))
+    deleted_logins = int(result.rowcount or 0)
 
     # --- honeypot session transcripts ---
     from app.models.honeypot_session import HoneypotSession
@@ -3306,9 +3306,8 @@ def admin_attacks_clear(
     if source_ip:
         session_conditions.append(HoneypotSession.source_ip == source_ip)
     deleted_sessions = 0
-    if session_conditions:
-        result = db.execute(delete(HoneypotSession).where(*session_conditions))
-        deleted_sessions = int(result.rowcount or 0)
+    result = db.execute(delete(HoneypotSession).where(*session_conditions))
+    deleted_sessions = int(result.rowcount or 0)
 
     db.commit()
     total = deleted_events + deleted_creds + deleted_logins + deleted_sessions
