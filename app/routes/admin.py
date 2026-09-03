@@ -3198,6 +3198,74 @@ def admin_attacks(
     )
 
 
+@router.post("/admin/attacks/clear")
+def admin_attacks_clear(
+    request: Request,
+    date_from: str = Form(""),
+    date_to: str = Form(""),
+    source_ip: str = Form(""),
+    site_id: str = Form(""),
+    scope: str = Form("all"),
+    db: Session = Depends(get_db),
+):
+    """Delete historical traffic events, optionally scoped to the active
+    filters. Honours the observe-only prefixes: decoy/portal surfaces keep
+    their evidence even in a full wipe (they are the attribution record)."""
+    user = _require_admin(request, db)
+
+    conditions = []
+    if date_from:
+        try:
+            conditions.append(
+                Event.created_at
+                >= datetime.fromisoformat(date_from).replace(tzinfo=timezone.utc)
+            )
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            end = datetime.fromisoformat(date_to).replace(
+                hour=23, minute=59, second=59, tzinfo=timezone.utc
+            )
+            conditions.append(Event.created_at <= end)
+        except ValueError:
+            pass
+    if source_ip:
+        conditions.append(Event.source_ip == source_ip)
+    if site_id:
+        conditions.append(Event.site_id == site_id)
+    if scope != "all":
+        # preserve decoy/portal/attribution surfaces
+        from app.middleware.injector import OBSERVE_ONLY_PREFIXES
+
+        like = "|".join(p.rstrip("/") + "/%" for p in OBSERVE_ONLY_PREFIXES)
+        conditions.append(~Event.path.like(like))
+
+    stmt = delete(Event)
+    for cond in conditions:
+        stmt = stmt.where(cond)
+    result = db.execute(stmt)
+    db.commit()
+    deleted = int(result.rowcount or 0)
+    log_execution(
+        db,
+        actor_username=user.username,
+        action="clear-events",
+        module="attacks",
+        target_type="events",
+        target_ref=f"scope={scope}",
+        status="success",
+        detail_json={"deleted": deleted, "filters": {
+            "date_from": date_from, "date_to": date_to,
+            "source_ip": source_ip, "site_id": site_id,
+        }},
+    )
+    return _redirect(
+        "/admin/attacks"
+        + _qs(saved=f"已清除 {deleted} 条历史流量事件")
+    )
+
+
 @router.get("/admin/attacks/export.csv")
 def admin_attacks_export(
     request: Request,
