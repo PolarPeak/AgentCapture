@@ -2538,3 +2538,43 @@ body.col-resizing .th-resizer::after { background: rgba(255, 255, 255, 0.75); }
   background: linear-gradient(to bottom, #1e293b, #0f172a);
   color: #f8fafc;
 }
+
+/* ---------------------------------------------------------------------------
+ * CHECKBOXES — unified white unchecked box, blue accent when checked.
+ * The generic input rule above paints unchecked boxes dark (invisible on
+ * the dark theme) with oversized padding; batch-select columns need a
+ * crisp, consistent control in both themes.
+ * ------------------------------------------------------------------------- */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  min-width: 15px;
+  padding: 0 !important;
+  margin: 0;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  background: #ffffff;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+}
+input[type="checkbox"]:hover {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+input[type="checkbox"]:checked {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'><path d='M3 8.5l3.5 3.5L13 5'/></svg>");
+  background-size: 10px 10px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+input[type="checkbox"]:disabled { opacity: 0.45; cursor: not-allowed; }
+[data-theme="light"] input[type="checkbox"] {
+  border-color: rgba(15, 23, 42, 0.35);
+  box-shadow: none;
+}
+[data-theme="light"] input[type="checkbox"]:hover { border-color: #2563eb; }
