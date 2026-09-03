@@ -1699,6 +1699,7 @@ def _clone_remote_site(
     render_wait_ms: int | str | None = None,
     _progress: "Callable | None" = None,
     inject_kwargs: dict | None = None,
+    dismiss_modals: bool = False,
 ) -> tuple[str, list[dict], int]:
     """Fetch *clone_url* and save HTML + assets under CLONED_TEMPLATE_ROOT.
 
@@ -1747,6 +1748,7 @@ def _clone_remote_site(
             render_wait_ms=wait_ms,
             _progress=_pct,
             inject_kwargs=inject_kwargs,
+            dismiss_modals=dismiss_modals,
         )
         _pct("注入蜜罐运行时…", 88)
         return result
@@ -1855,6 +1857,7 @@ def _clone_with_playwright(
     render_wait_ms: int,
     _progress: "Callable | None" = None,
     inject_kwargs: dict | None = None,
+    dismiss_modals: bool = False,
 ) -> tuple[str, list[dict], int]:
     """Clone using Playwright headless Chromium — renders JS / SPA content."""
     from playwright.sync_api import sync_playwright
@@ -2030,14 +2033,15 @@ def _clone_with_playwright(
         except Exception:
             original_script_srcs = []
 
-        # Dismiss any modal / dialog the site opened during load (client
-        # checks, cookie banners, welcome overlays): the snapshot must be the
-        # pristine landing state, not a transient dialog frozen into the clone.
-        try:
-            _dismiss_open_modals(page)
-            page.wait_for_timeout(300)
-        except Exception:
-            pass
+        # Opt-in: dismiss modal dialogs / overlays the site opened during load.
+        # Default OFF — the authentic page state (client-download prompts etc.)
+        # is part of the 1:1 deception; only enable for pristine snapshots.
+        if dismiss_modals:
+            try:
+                _dismiss_open_modals(page)
+                page.wait_for_timeout(300)
+            except Exception:
+                pass
 
         html = page.content()
         # The rendered document may sit at a different URL than the requested
@@ -2660,6 +2664,38 @@ _CLONE_RUNTIME_SCRIPT = r"""
     } catch(e){}
   }
 
+  // ---------- generic dialog dismissal ----------
+  // Mask click and Escape close the topmost visible dialog. The original
+  // close affordances (framework-wired or CSS-drawn) may not survive the
+  // clone, and a dialog that cannot be closed kills the deception.
+  function hideTopDialog() {
+    try {
+      var dialogs = document.querySelectorAll('.dialog, [class*="modal"], [class*="popup"]');
+      var top = null, topZ = -1;
+      for (var i = 0; i < dialogs.length; i++) {
+        var d = dialogs[i];
+        if (getComputedStyle(d).display === 'none') continue;
+        var z = parseInt(getComputedStyle(d).zIndex || '0', 10);
+        if (z >= topZ) { top = d; topZ = z; }
+      }
+      if (top) top.style.display = 'none';
+      var masks = document.querySelectorAll('[class*="dialog-mask"], [class*="modal-mask"], [class*="mask"]');
+      for (var j = 0; j < masks.length; j++) masks[j].style.display = 'none';
+      document.body.style.overflow = '';
+    } catch(e){}
+  }
+  function installDismissalGestures() {
+    document.addEventListener('click', function(ev){
+      try {
+        var cls = (ev.target.className || '') + '';
+        if (cls.indexOf('dialog-mask') >= 0 || cls.indexOf('modal-mask') >= 0 || cls.indexOf('mask') >= 0) hideTopDialog();
+      } catch(e){}
+    }, true);
+    document.addEventListener('keydown', function(ev){
+      try { if (ev.key === 'Escape') hideTopDialog(); } catch(e){}
+    }, true);
+  }
+
   // ---------- bootstrap ----------
   function run() {
     try {
@@ -2669,6 +2705,7 @@ _CLONE_RUNTIME_SCRIPT = r"""
       var links = document.querySelectorAll('a[href]');
       for (var j = 0; j < links.length; j++) rewriteAnchor(links[j]);
       installModalCloseFallback();
+      installDismissalGestures();
       enhanceDialogs();
       hijackDownloadButtons();
     } catch(e){}
@@ -4267,6 +4304,7 @@ def clone_template(
     clone_render_wait: int = Form(6),
     redirect_action: str = Form("fake_error"),
     redirect_url: str = Form(""),
+    dismiss_popups: str = Form(""),
     db: Session = Depends(get_db),
 ):
     """Start clone in a background thread. Returns task_id as JSON for polling."""
@@ -4326,6 +4364,7 @@ def clone_template(
                 render_wait_ms=wait_ms,
                 _progress=_progress_cb,
                 inject_kwargs=inject_kwargs,
+                dismiss_modals=bool(dismiss_popups),
             )
         except (ValueError, OSError, HTTPError, URLError) as exc:
             _clone_update(task_id, stage="失败", percent=100, done=True, error=str(exc)[:160])

@@ -343,6 +343,13 @@
         <span>渲染等待</span>
         <input type="number" name="clone_render_wait" value="8" min="2" max="20" placeholder="秒">
       </label>
+      <label class="clone-field-label" title="默认保留原站加载时自动弹出的对话框（如客户端下载提示），与真实站点一致；勾选后克隆为无弹窗的纯净快照">
+        <span>关闭加载弹窗</span>
+        <select name="dismiss_popups">
+          <option value="" selected>保留（默认 · 与原站一致）</option>
+          <option value="on">关闭（纯净快照）</option>
+        </select>
+      </label>
     </div>
     <label class="clone-field-label">
       <span>User-Agent（用于控制桌面/移动端与部分站点语言版本）</span>
