@@ -2276,17 +2276,16 @@ _CLONE_RUNTIME_SCRIPT = r"""
 
   function showBlockOverlay() {
     try {
-      var msg = document.createElement('div');
-      msg.id = '__agent_capture_block';
-      msg.style.cssText = 'position:fixed;inset:0;background:rgba(7,11,22,0.96);color:#e5edf8;display:grid;place-items:center;z-index:2147483647;font:14px/1.6 system-ui;padding:32px;text-align:center';
+      // 'original' / 'custom' redirects must be seamless: showing a "正在跳转"
+      // splash would tell the attacker they are being redirected off the clone.
+      // Only the explicit warning overlay is shown; the rest stay silent.
       if (REDIRECT_ACTION === 'warning' || REDIRECT_ACTION === '') {
+        var msg = document.createElement('div');
+        msg.id = '__agent_capture_block';
+        msg.style.cssText = 'position:fixed;inset:0;background:rgba(7,11,22,0.96);color:#e5edf8;display:grid;place-items:center;z-index:2147483647;font:14px/1.6 system-ui;padding:32px;text-align:center';
         msg.innerHTML = '<div><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="#fb7185" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:20px"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg><h2 style="margin:0 0 12px;font-size:22px">访问已被拦截</h2><p style="color:#94a3b8;margin:0 0 8px">该系统处于蜜罐监控环境。</p><p style="color:#94a3b8;margin:0">您输入的凭据已被记录，所有操作均在监控之下。</p></div>';
-      } else if (REDIRECT_ACTION === 'original') {
-        msg.innerHTML = '<div><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:20px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg><h2 style="margin:0 0 8px">正在跳转...</h2><p style="color:#94a3b8;margin:0\">即将跳转至目标系统</p></div>';
-      } else if (REDIRECT_ACTION === 'custom') {
-        msg.innerHTML = '<div><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:20px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg><h2 style="margin:0 0 8px">正在跳转...</h2><p style="color:#94a3b8;margin:0\">即将跳转至新地址</p></div>';
+        (document.body || document.documentElement).appendChild(msg);
       }
-      (document.body || document.documentElement).appendChild(msg);
     } catch(e){}
   }
 
