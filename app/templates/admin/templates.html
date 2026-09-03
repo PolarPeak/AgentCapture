@@ -22,12 +22,24 @@
   @media (max-width: 1280px) {
     .tpl-create-grid { grid-template-columns: 1fr; }
   }
-  /* 部署表「启用到节点」内联控件的规整两行布局 */
-  .deploy-form .actions-inline {
-    display: grid !important;
-    grid-template-columns: minmax(90px, 1.2fr) 82px minmax(70px, 1fr) auto;
+  /* 启用控件 + 停用按钮保持在同一行 */
+  .deploy-actions {
+    display: flex !important;
+    flex-wrap: nowrap;
     align-items: center;
+    gap: 6px;
+    width: 100%;
   }
+  .deploy-actions .deploy-form .actions-inline {
+    display: flex !important;
+    flex-wrap: nowrap;
+    gap: 6px;
+    grid-template-columns: none;
+  }
+  .deploy-actions .deploy-form select { min-width: 96px; }
+  .deploy-actions .deploy-form input[type="number"] { width: 74px; }
+  .deploy-actions .deploy-form input[type="text"] { width: 90px; }
+  .deploy-form + form { margin-top: 8px; }
   .deploy-form .actions-inline select,
   .deploy-form .actions-inline input { width: 100%; min-width: 0; }
   .deploy-form + form { margin-top: 8px; }
@@ -480,23 +492,23 @@
               {% endif %}
             </td>
             <td>
-              <form method="post" action="/admin/templates/{{ item.id }}/enable" class="deploy-form">
-                <div class="actions-inline">
-                  <select name="node_id" {% if not nodes %}disabled{% endif %}>
+              <div class="actions-inline deploy-actions">
+                <form method="post" action="/admin/templates/{{ item.id }}/enable" class="deploy-form" style="margin:0">
+                  <select name="node_id" {% if not nodes %}disabled{% endif %} title="部署节点">
                     {% for node in nodes %}
                     <option value="{{ node.id }}">{{ node.name }}</option>
                     {% endfor %}
                   </select>
-                  <input type="number" name="deploy_port" value="8080" min="1" max="65535" placeholder="端口">
-                  <input type="text" name="deploy_route" value="{{ item.entry_path }}" placeholder="/path">
+                  <input type="number" name="deploy_port" value="8080" min="1" max="65535" placeholder="端口" title="部署端口">
+                  <input type="text" name="deploy_route" value="{{ item.entry_path }}" placeholder="/path" title="入口路径">
                   <button type="submit" {% if not nodes %}disabled{% endif %} class="primary btn-sm">启用</button>
-                </div>
-              </form>
-              {% if is_enabled %}
-              <form method="post" action="/admin/templates/{{ item.id }}/disable" style="margin-top:6px">
-                <button type="submit" class="secondary btn-sm">停用</button>
-              </form>
-              {% endif %}
+                </form>
+                {% if is_enabled %}
+                <form method="post" action="/admin/templates/{{ item.id }}/disable" style="margin:0">
+                  <button type="submit" class="secondary btn-sm">停用</button>
+                </form>
+                {% endif %}
+              </div>
             </td>
             <td>
               <div class="actions-inline">
