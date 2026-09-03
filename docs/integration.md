@@ -420,7 +420,7 @@ SSH / MySQL / Redis / FTP / ElasticSearch 协议仿真服务直接监听独立�
 #### 5.4.2 操作
 
 1. 后台 → 端口服务蜜罐（`/admin/services`）→ 对应服务行**启动**（DB 与实际运行状态自动对账）。
-2. Docker 部署时映射端口（`docker-compose.yml`）：
+2. Docker 部署：`docker-compose.yml` 默认已映射全部蜜罐端口（2222 / 2121 / 33060 / 63790 / 19200 / 8081）；宿主机端口冲突时在 `.env.docker` 覆盖宿主机侧（如 `HOST_SSH_PORT=2223`）：
 
 ```yaml
     ports:
