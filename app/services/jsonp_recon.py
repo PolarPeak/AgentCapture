@@ -39,6 +39,34 @@ def compute_fingerprint_hash(data: dict) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()[:32]
 
 
+def normalize_platform(value: str | None, user_agent: str = "") -> str:
+    """Map raw navigator.platform strings onto friendly OS labels.
+
+    ``MacIntel`` / ``Win32`` / ``Linux x86_64`` are what browsers report;
+    the recon-data platform column should read macOS / Windows / Linux.
+    The UA refines ambiguous cases (Android Chrome reports a Linux
+    platform string).
+    """
+    raw = str(value or "").strip()
+    ua = (user_agent or "").lower()
+    hay = (raw + " " + ua).lower()
+    if not hay.strip():
+        return ""
+    if "android" in hay:
+        return "Android"
+    if "iphone" in hay or "ipad" in hay or "ipod" in hay or "ios" in hay:
+        return "iOS"
+    if "mac" in hay or "darwin" in hay:
+        return "macOS"
+    if "win" in hay:
+        return "Windows"
+    if "cros" in hay:
+        return "ChromeOS"
+    if "linux" in hay or "ubuntu" in hay or "x11" in hay:
+        return "Linux"
+    return raw[:24] if raw else ""
+
+
 def sanitize_webrtc_ips(values: list[str] | None) -> tuple[list[str], list[str]]:
     """Keep only real IPv4/IPv6 addresses from collected WebRTC candidates.
 

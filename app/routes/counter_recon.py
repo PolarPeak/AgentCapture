@@ -8,7 +8,12 @@ from app.core.db import SessionLocal
 from app.schemas.events import AgentInteractionPayload, ReconPayload
 from app.services.agent_injection import generate_agent_injection
 from app.services.events import create_event, extract_client_ip, filtered_headers
-from app.services.jsonp_recon import generate_jsonp_response, process_fingerprint, sanitize_webrtc_ips
+from app.services.jsonp_recon import (
+    generate_jsonp_response,
+    normalize_platform,
+    process_fingerprint,
+    sanitize_webrtc_ips,
+)
 from app.services.jsonp_templates import get_jsonp_template, render_jsonp_template_payload
 from app.services.payload_generator import PAYLOAD_GENERATORS
 from app.services.prompt_injection_templates import list_active_prompt_templates
@@ -36,6 +41,9 @@ def collect_fingerprint(payload: ReconPayload, request: Request) -> Response:
     event_payload = payload.model_dump()
     if dropped_ips:
         event_payload["webrtc_dropped"] = dropped_ips
+    platform_label = normalize_platform(payload.platform, request.headers.get("user-agent", ""))
+    if platform_label:
+        event_payload["platform_label"] = platform_label
 
     with SessionLocal() as db:
         create_event(
