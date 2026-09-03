@@ -39,6 +39,9 @@
               {% else %}
               {{ badge('植入', 'info') }}
               {% endif %}
+              {% if (agent.metadata_json or {}).get('agent_product') %}
+              <span class="badge badge-warning" style="margin-left:4px;cursor:default" title="指纹识别: {{ (agent.metadata_json or {}).get('agent_product') }}">{{ (agent.metadata_json or {}).get('agent_product') }}</span>
+              {% endif %}
             </td>
             <td><code>{{ agent.source_ip }}</code></td>
             <td>{{ agent.hostname or '-' }}</td>

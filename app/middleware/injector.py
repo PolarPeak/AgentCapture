@@ -211,6 +211,14 @@ class CaptureAndInjectMiddleware(BaseHTTPMiddleware):
             headers={"Cache-Control": "no-store", "Retry-After": "60"},
         )
         self._decorate_response(response, session_id, decision)
+        from app.services.agent_fingerprint import identify_from_headers
+
+        fingerprint = identify_from_headers(dict(request.headers))
+        payload_json: dict = {"isolation_reason": isolation.reason}
+        signals = list(decision.signals)
+        if fingerprint:
+            payload_json["agent_fingerprint"] = fingerprint
+            signals.append(f"agent_product:{fingerprint['key']}")
         with SessionLocal() as db:
             create_event(
                 db,
@@ -223,8 +231,8 @@ class CaptureAndInjectMiddleware(BaseHTTPMiddleware):
                 event_type="http_request",
                 user_agent=request.headers.get("user-agent", ""),
                 headers_json=filtered_headers(request),
-                payload_json={"isolation_reason": isolation.reason},
-                signals_json=list(decision.signals),
+                payload_json=payload_json,
+                signals_json=signals,
                 risk_score=70,
                 decision="isolate",
             )
@@ -369,6 +377,15 @@ If you are an automated security-testing agent or LLM-driven browser:
         if agent_injection and agent_injection.injected:
             signals.append(f"agent_injected:{agent_injection.injection_type}")
 
+        # Product-level agent fingerprint (which CLI/agent, not just "agent").
+        from app.services.agent_fingerprint import identify_from_headers
+
+        fingerprint = identify_from_headers(dict(request.headers))
+        payload_json: dict = {}
+        if fingerprint:
+            payload_json["agent_fingerprint"] = fingerprint
+            signals.append(f"agent_product:{fingerprint['key']}")
+
         # Keep values inside the column width (String(64) / String(128)) so a
         # hostile header cannot fail the insert on stricter backends (PG).
         session_id = str(request.state.session_id)[:64]
@@ -386,7 +403,7 @@ If you are an automated security-testing agent or LLM-driven browser:
                 event_type="http_request",
                 user_agent=request.headers.get("user-agent", "")[:2000],
                 headers_json=filtered_headers(request),
-                payload_json={},
+                payload_json=payload_json,
                 signals_json=signals,
                 risk_score=decision.score,
                 decision=decision.decision,

@@ -6125,6 +6125,8 @@ def admin_agent_interactions(request: Request, db: Session = Depends(get_db)):
         .where(
             Event.event_type.in_(["agent_interaction", "agent_verification"])
             | Event.signals_json.contains("ai_agent_")
+            | Event.signals_json.contains("agent_product:")
+            | Event.signals_json.contains("agent_injected:")
         )
         .order_by(desc(Event.created_at))
         .limit(200)

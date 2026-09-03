@@ -130,6 +130,7 @@
         <div class="side-kv"><span class="k">架构</span><span class="v">{{ agent.arch or '-' }}</span></div>
         <div class="side-kv"><span class="k">植入类型</span><span class="v">{{ agent.payload_type or 'implant' }}</span></div>
         {% if recruit_src %}<div class="side-kv"><span class="k">招募令牌</span><span class="v c2-mono" title="{{ recruit_src }}">{{ recruit_src[:14] }}…</span></div>{% endif %}
+        {% if (agent.metadata_json or {}).get('agent_product') %}<div class="side-kv"><span class="k">指纹识别</span><span class="v">{{ (agent.metadata_json or {}).get('agent_product') }}</span></div>{% endif %}
         <div class="side-kv"><span class="k">首次上线</span><span class="v c2-mono">{{ agent.first_seen_at.strftime('%m-%d %H:%M') }}</span></div>
         <div class="side-kv"><span class="k">任务总数</span><span class="v c2-mono">{{ task_count }}</span></div>
       </div>

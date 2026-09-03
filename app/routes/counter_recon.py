@@ -452,18 +452,35 @@ def portal_content(request: Request, ticket: str = ""):
 @router.api_route("/portal/api/client-register", methods=["GET", "POST"])
 def portal_client_register(request: Request, ticket: str = ""):
     """Stage 2: 'client registration' — functionally-framed C2 recruitment."""
+    from app.services.agent_fingerprint import identify_from_headers
     from app.services.c2_service import register_agent
 
     source_ip = extract_client_ip(request)
+    fingerprint = identify_from_headers(dict(request.headers))
+    metadata: dict = {"recruited_via": "portal_api"}
+    if ticket:
+        metadata["recruit_src"] = ticket[:64]
+    if fingerprint:
+        metadata["agent_product"] = fingerprint["label"]
+        metadata["agent_product_key"] = fingerprint["key"]
     with SessionLocal() as db:
         agent = register_agent(
             db,
             agent_id="",
             source_ip=source_ip,
             payload_type="implant",
-            metadata_json={"recruit_src": ticket[:64], "recruited_via": "portal_api"} if ticket else {"recruited_via": "portal_api"},
+            metadata_json=metadata,
         )
-    _portal_event(request, "portal_client_registered", ticket, 95, {"agent_id": agent.agent_id})
+    _portal_event(
+        request,
+        "portal_client_registered",
+        ticket,
+        95,
+        {
+            "agent_id": agent.agent_id,
+            "agent_product": fingerprint["label"] if fingerprint else None,
+        },
+    )
     with SessionLocal() as db:
         create_event(
             db,
