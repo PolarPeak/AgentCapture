@@ -589,7 +589,7 @@
         letter-spacing: 0.01em;
         transition: transform 160ms var(--ease-out), background-color 160ms var(--ease-out), border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
       }
-      button:not(.secondary):not(.ghost) {
+      button:not(.secondary):not(.ghost):not(.danger):not(.chip):not(.pill):not(.theme-toggle):not(.footer-button):not(.nav-group-title):not(.sidebar-collapse-btn):not(.profile-settings) {
         background: linear-gradient(135deg, #2563eb, #3b82f6);
         color: #ffffff;
         border-color: transparent;
@@ -1682,7 +1682,7 @@ tbody tr:hover { background: rgba(34, 211, 238, 0.045); }
 .badge { border-radius: 3px; font-family: "Fira Code", ui-monospace, monospace; letter-spacing: 0.03em; }
 
 /* --- buttons: console actions --- */
-button:not(.secondary):not(.ghost) {
+button:not(.secondary):not(.ghost):not(.danger):not(.chip):not(.pill):not(.theme-toggle):not(.footer-button):not(.nav-group-title):not(.sidebar-collapse-btn):not(.profile-settings) {
   background: linear-gradient(135deg, #0e7490, #2563eb);
   border-radius: 4px;
   box-shadow: 0 0 16px rgba(34, 211, 238, 0.22);
@@ -1934,7 +1934,7 @@ code {
 pre { border-color: rgba(255, 255, 255, 0.08); }
 
 /* Buttons: white-gradient primary like the reference */
-button:not(.secondary):not(.ghost) {
+button:not(.secondary):not(.ghost):not(.danger):not(.chip):not(.pill):not(.theme-toggle):not(.footer-button):not(.nav-group-title):not(.sidebar-collapse-btn):not(.profile-settings) {
   background: linear-gradient(to bottom, #ffffff, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.72));
   color: #0a0a0a;
   border-radius: 8px;
@@ -2110,7 +2110,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: #e5e7eb; }
 }
 [data-theme="light"] input:hover, [data-theme="light"] select:hover, [data-theme="light"] textarea:hover { border-color: rgba(15, 23, 42, 0.25); }
 
-[data-theme="light"] button:not(.secondary):not(.ghost) {
+[data-theme="light"] button:not(.secondary):not(.ghost):not(.danger):not(.chip):not(.pill):not(.theme-toggle):not(.footer-button):not(.nav-group-title):not(.sidebar-collapse-btn):not(.profile-settings) {
   background: linear-gradient(to bottom, #1e293b, #0f172a);
   color: #f8fafc;
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.18);
@@ -2485,3 +2485,56 @@ body.col-resizing .th-resizer::after { background: rgba(255, 255, 255, 0.75); }
   vertical-align: middle;
 }
 /* Light theme: sticky cells must match the actual light row surface */
+
+/* ---------------------------------------------------------------------------
+ * LIGHT THEME BUTTON FINAL WORD
+ * The greedy primary-button layers above carry long :not() chains so variant
+ * buttons (.danger / .chip / .theme-toggle / …) keep their own skins. These
+ * rules finish the light-mode story for controls whose dark bases would
+ * otherwise be invisible on the white chrome.
+ * ------------------------------------------------------------------------- */
+[data-theme="light"] .sidebar .nav-group > button.nav-group-title,
+[data-theme="light"] .sidebar .nav-group > button.nav-group-title:visited {
+  color: #94a3b8;
+  background: transparent;
+}
+[data-theme="light"] .sidebar .nav-group > button.nav-group-title:hover,
+[data-theme="light"] .sidebar .nav-group > button.nav-group-title:active,
+[data-theme="light"] .sidebar .nav-group > button.nav-group-title:focus {
+  color: #334155;
+  background: rgba(15, 23, 42, 0.05);
+}
+[data-theme="light"] .sidebar-collapse-btn {
+  background: rgba(15, 23, 42, 0.05);
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #64748b;
+}
+[data-theme="light"] .sidebar-collapse-btn:hover {
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.28);
+  background: rgba(15, 23, 42, 0.09);
+}
+[data-theme="light"] .footer-button {
+  background: rgba(190, 18, 60, 0.08);
+  border-color: rgba(190, 18, 60, 0.22);
+  color: #be123c;
+}
+[data-theme="light"] .footer-button:hover {
+  background: rgba(190, 18, 60, 0.14);
+  color: #9f1239;
+}
+[data-theme="light"] button.danger {
+  background: linear-gradient(135deg, #e11d48, #f43f5e);
+  color: #ffffff;
+  border-color: transparent;
+}
+[data-theme="light"] button.chip,
+[data-theme="light"] button.pill {
+  background: rgba(15, 23, 42, 0.05);
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #334155;
+}
+[data-theme="light"] button.chip.primary {
+  background: linear-gradient(to bottom, #1e293b, #0f172a);
+  color: #f8fafc;
+}
