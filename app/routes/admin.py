@@ -3208,9 +3208,12 @@ def admin_attacks_clear(
     scope: str = Form("all"),
     db: Session = Depends(get_db),
 ):
-    """Delete historical traffic events, optionally scoped to the active
-    filters. Honours the observe-only prefixes: decoy/portal surfaces keep
-    their evidence even in a full wipe (they are the attribution record)."""
+    """Delete historical traffic data across the three record surfaces:
+    traffic events, credential-bait login records (credential_observations
+    + login_logs) and honeypot session transcripts — optionally scoped to
+    the active filters. Honours the observe-only prefixes: decoy/portal
+    surfaces keep their evidence even in a full wipe (they are the
+    attribution record)."""
     user = _require_admin(request, db)
 
     conditions = []
@@ -3245,8 +3248,70 @@ def admin_attacks_clear(
     for cond in conditions:
         stmt = stmt.where(cond)
     result = db.execute(stmt)
+    deleted_events = int(result.rowcount or 0)
+
+    # --- credential bait login records (credential page + login logs) ---
+    from app.models.credential import CredentialObservation
+    from app.models.login_log import LoginLog
+
+    cred_conditions = []
+    login_conditions = []
+    if date_from:
+        try:
+            start = datetime.fromisoformat(date_from).replace(tzinfo=timezone.utc)
+            cred_conditions.append(CredentialObservation.created_at >= start)
+            login_conditions.append(LoginLog.created_at >= start)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            end = datetime.fromisoformat(date_to).replace(
+                hour=23, minute=59, second=59, tzinfo=timezone.utc
+            )
+            cred_conditions.append(CredentialObservation.created_at <= end)
+            login_conditions.append(LoginLog.created_at <= end)
+        except ValueError:
+            pass
+    if source_ip:
+        cred_conditions.append(CredentialObservation.source_ip == source_ip)
+        login_conditions.append(LoginLog.ip_address == source_ip)
+
+    deleted_creds = 0
+    deleted_logins = 0
+    if cred_conditions:
+        result = db.execute(delete(CredentialObservation).where(*cred_conditions))
+        deleted_creds = int(result.rowcount or 0)
+    if login_conditions:
+        result = db.execute(delete(LoginLog).where(*login_conditions))
+        deleted_logins = int(result.rowcount or 0)
+
+    # --- honeypot session transcripts ---
+    from app.models.honeypot_session import HoneypotSession
+
+    session_conditions = []
+    if date_from:
+        try:
+            start = datetime.fromisoformat(date_from).replace(tzinfo=timezone.utc)
+            session_conditions.append(HoneypotSession.started_at >= start)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            end = datetime.fromisoformat(date_to).replace(
+                hour=23, minute=59, second=59, tzinfo=timezone.utc
+            )
+            session_conditions.append(HoneypotSession.started_at <= end)
+        except ValueError:
+            pass
+    if source_ip:
+        session_conditions.append(HoneypotSession.source_ip == source_ip)
+    deleted_sessions = 0
+    if session_conditions:
+        result = db.execute(delete(HoneypotSession).where(*session_conditions))
+        deleted_sessions = int(result.rowcount or 0)
+
     db.commit()
-    deleted = int(result.rowcount or 0)
+    total = deleted_events + deleted_creds + deleted_logins + deleted_sessions
     log_execution(
         db,
         actor_username=user.username,
@@ -3255,14 +3320,25 @@ def admin_attacks_clear(
         target_type="events",
         target_ref=f"scope={scope}",
         status="success",
-        detail_json={"deleted": deleted, "filters": {
-            "date_from": date_from, "date_to": date_to,
-            "source_ip": source_ip, "site_id": site_id,
-        }},
+        detail_json={
+            "deleted_events": deleted_events,
+            "deleted_credential_observations": deleted_creds,
+            "deleted_login_logs": deleted_logins,
+            "deleted_honeypot_sessions": deleted_sessions,
+            "filters": {
+                "date_from": date_from, "date_to": date_to,
+                "source_ip": source_ip, "site_id": site_id,
+            },
+        },
     )
     return _redirect(
         "/admin/attacks"
-        + _qs(saved=f"已清除 {deleted} 条历史流量事件")
+        + _qs(
+            saved=(
+                f"已清除 {total} 条历史数据：流量事件 {deleted_events}、"
+                f"凭证蜜饵登陆 {deleted_creds + deleted_logins}、蜜罐会话 {deleted_sessions}"
+            )
+        )
     )
 
 
