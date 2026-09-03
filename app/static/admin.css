@@ -2578,3 +2578,76 @@ input[type="checkbox"]:disabled { opacity: 0.45; cursor: not-allowed; }
   box-shadow: none;
 }
 [data-theme="light"] input[type="checkbox"]:hover { border-color: #2563eb; }
+
+/* ---------------------------------------------------------------------------
+ * READABILITY PASS — typography & button legibility in both themes
+ * Audit findings (WCAG-contrast measured on live pages):
+ *  · primary buttons: 19.8 (dark) / 14 (light) — fine
+ *  · secondary buttons & chips sat on ~5% alpha overlays → weak affordance,
+ *    borders barely visible; contrast vs the page was fine but *recognition*
+ *    (spotting them as clickable) was poor
+ *  · muted helper text ran at 11–11.5px, small on high-DPI screens
+ * ------------------------------------------------------------------------- */
+
+/* --- 1. secondary buttons: solid surfaces + accent border ---------------- */
+button.secondary {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #f1f5f9 !important;
+  font-weight: 600;
+}
+button.secondary:hover {
+  background: rgba(255, 255, 255, 0.13) !important;
+  border-color: rgba(96, 165, 250, 0.45);
+  color: #ffffff;
+}
+[data-theme="light"] button.secondary {
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 23, 42, 0.22);
+  color: #1e293b !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+[data-theme="light"] button.secondary:hover {
+  background: #f1f5f9 !important;
+  border-color: rgba(37, 99, 235, 0.5);
+  color: #0f172a;
+}
+
+/* --- 2. chips: stronger border + opaque bg, larger text ----------------- */
+.chip, .pill {
+  font-size: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.07);
+  color: #e2e8f0;
+}
+.chip:hover { border-color: rgba(96, 165, 250, 0.5); color: #ffffff; }
+[data-theme="light"] .chip, [data-theme="light"] .pill {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.24);
+  color: #1e293b;
+}
+[data-theme="light"] .chip:hover { border-color: rgba(37, 99, 235, 0.55); color: #0f172a; }
+.chip.primary {
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, #2563eb, #0ea5e9);
+  color: #ffffff;
+}
+[data-theme="light"] .chip.primary {
+  background: linear-gradient(135deg, #2563eb, #0ea5e9);
+  color: #ffffff;
+}
+
+/* --- 3. danger buttons: keep red identity, lift text contrast ----------- */
+button.danger { color: #ffffff !important; font-weight: 700; text-shadow: 0 1px 1px rgba(0,0,0,.25); }
+[data-theme="light"] button.danger {
+  background: linear-gradient(135deg, #e11d48, #f43f5e) !important;
+  color: #ffffff !important;
+}
+
+/* --- 4. helper text: floor small sizes at 12px -------------------------- */
+.panel-subtitle, .muted, .text-muted, .recent-filter-status { font-size: 12px; }
+.metric-card-label { font-size: 11.5px; letter-spacing: .06em; }
+
+/* --- 5. light-theme body text: slightly darker for print-like clarity --- */
+[data-theme="light"] body { color: #172033; }
+[data-theme="light"] td { color: #172033; }
