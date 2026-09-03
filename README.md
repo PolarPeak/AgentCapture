@@ -182,7 +182,7 @@ flowchart LR
 5. 风险引擎输出观察、挑战、隔离或阻断决策，并支持持久隔离。
 6. 后台按攻击流量、凭证登录、文件下载、蜜罐会话和反制溯源记录聚合证据。
 
-更多说明见：[docs/architecture.md](docs/architecture.md)
+更多说明见：[docs/architecture.md](docs/architecture.md)；互联网系统接入方式、配置命令与接入拓扑见 **[docs/integration.md](docs/integration.md)**。
 
 ---
 

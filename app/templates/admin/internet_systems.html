@@ -181,12 +181,54 @@
   </section>
 </div>
 
-{% call modal_dialog('internet-doc-modal', '无损接入路线', '推荐按 4 个阶段为互联网系统逐步接入；关键原则：默认放行、异常旁路、只对 HTML/公开页灰度注入、每个系统独立开关。') %}
+{% call modal_dialog('internet-doc-modal', '无损接入路线', '推荐按 4 个阶段为互联网系统逐步接入；关键原则：默认放行、异常旁路、只对 HTML/公开页灰度注入、每个系统独立开关。完整接入文档（五种方式、逐条命令、验收清单）见仓库 docs/integration.md。', wide=true) %}
 <div class="internet-playbook">
   <div class="internet-step"><div class="internet-step-num">1</div><strong>旁路监测</strong><span>先接入访问日志、攻击流量和扫描器识别，不改业务响应、不注入脚本。</span></div>
   <div class="internet-step"><div class="internet-step-num">2</div><strong>反向代理</strong><span>按域名配置 upstream，默认放行到原业务；代理层故障时自动旁路或回切。</span></div>
   <div class="internet-step"><div class="internet-step-num">3</div><strong>灰度蜜饵</strong><span>只在公开页、404、可疑请求或高风险会话注入蜜饵路径、Jsonp 画像和假接口。</span></div>
   <div class="internet-step"><div class="internet-step-num">4</div><strong>联动处置</strong><span>对确认攻击的来源再启用挑战、隔离或阻断，业务用户始终走原链路。</span></div>
+</div>
+
+<div style="margin-top:18px">
+  <strong style="display:block;color:#f8fbff;margin-bottom:8px">接入拓扑（方式一：路径级反代挂载）</strong>
+  <pre style="background:rgba(2,6,23,.55);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:11.5px;line-height:1.7;overflow:auto;font-family:'Fira Code',ui-monospace,monospace">访问者 ──► 业务 Nginx :443（现有，证书不变）
+             │
+             ├─ /api  /app …（真实路径）──────► 真实业务（零改动）
+             │
+             └─ /portal/* /recon/* /collect/*  ► AgentCapture :4877
+                /_trap/* /d/* /_bait/* /internal/*   （欺骗层）
+                              │
+                              ├─► 事件 / 凭证 / Agent 招募名册
+                              └─► 态势大屏 · 告警 · 开放 API</pre>
+</div>
+
+<div style="margin-top:14px">
+  <strong style="display:block;color:#f8fbff;margin-bottom:8px">五种接入方式</strong>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px">
+    <div class="internet-step"><div class="internet-step-num">A</div><strong>路径级反代挂载（推荐）</strong><span>业务 Nginx 追加一段 location，蜜饵与回传路径转交平台，业务零感知。</span></div>
+    <div class="internet-step"><div class="internet-step-num">B</div><strong>全站前置（蜜罐 / 克隆站）</strong><span>独立域名整体交给平台：内置模板或一键克隆授权站点，登录表单重写为凭证采集。</span></div>
+    <div class="internet-step"><div class="internet-step-num">C</div><strong>前端注入投放</strong><span>Nginx sub_filter 向真实页面注入 beacon.js 与隐藏蜜饵链接，不新增路由。</span></div>
+    <div class="internet-step"><div class="internet-step-num">D</div><strong>协议蜜罐端口旁挂</strong><span>SSH 2222 / MySQL 33060 / Redis 63790 / FTP 2121 / ES 19200 独立端口暴露。</span></div>
+    <div class="internet-step"><div class="internet-step-num">E</div><strong>分布式节点接入</strong><span>多站点部署节点，X-Node-Token 心跳 / 领取任务，集中运营。</span></div>
+  </div>
+</div>
+
+<div style="margin-top:14px">
+  <strong style="display:block;color:#f8fbff;margin-bottom:8px">核心配置命令（方式一，业务 Nginx）</strong>
+  <pre style="background:rgba(2,6,23,.55);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:11.5px;line-height:1.7;overflow:auto;font-family:'Fira Code',ui-monospace,monospace"># server { ... } 内追加——真实业务路径保持不变
+location ~ ^/(portal/|recon/|collect/|_trap/|d/|_bait/|_clone/|_agent/|internal/|backup/) {
+    proxy_pass http://127.0.0.1:4877;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+location /static/beacon.js { proxy_pass http://127.0.0.1:4877/static/beacon.js; }
+
+# 平台侧必须开启真实 IP 信任（.env.docker）
+TRUST_PROXY_HEADERS=true
+
+# 生效与验收
+nginx -t && nginx -s reload
+curl -sI https://your.site/portal/api/content | grep -i x-agent-capture</pre>
 </div>
 {% endcall %}
 

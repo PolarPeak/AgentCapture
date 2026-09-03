@@ -182,7 +182,7 @@ Core runtime chain:
 5. The risk engine emits observe / challenge / isolate / block decisions with persistent isolation support.
 6. The console aggregates evidence across traffic, credential logins, file downloads, honeypot sessions, and counter-tracing records.
 
-Details in [docs/architecture.md](docs/architecture.md).
+Details in [docs/architecture.md](docs/architecture.md). Integration guide (access modes, config commands, topology) in **[docs/integration.md](docs/integration.md)** (Chinese).
 
 ---
 
